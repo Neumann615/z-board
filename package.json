@@ -1,19 +1,19 @@
 {
-  "name": "Bupu-board",
-  "version": "0.0.8",
+  "name": "z-board",
+  "version": "0.0.9",
   "license": "MIT",
-  "author": "wxx",
+  "author": "Z",
   "type": "module",
-  "main": "lib/Bupu-board.js",
-  "module": "lib/Bupu-board.js",
+  "main": "lib/z-board.js",
+  "module": "lib/z-board.js",
   "files": [
     "lib"
   ],
   "style": "dist/style.css",
   "exports": {
     ".": {
-      "import": "lib/Bupu-board.js",
-      "require": "lib/Bupu-board.js"
+      "import": "lib/z-board.js",
+      "require": "lib/z-board.js"
     },
     "./*": "./*"
   },

@@ -52,6 +52,11 @@ import {
     showBackground,
     resetSelect
 } from "./screenshot"
+import {
+    bindDrawEvents,
+    bindTextEvents,
+    bindWriteEvents
+} from "/src/modules/common/eventBinding"
 
 
 let canvasDom
@@ -183,108 +188,16 @@ function eventBinding() {
     })
 }
 
-//画笔部分事件绑定
 function writeEventBinding() {
-    function setLineType(e) {
-        if (e.srcElement.className.includes("bupu-module-item")) {
-            changeIsSelected(writeLineTypeDom.children, e.srcElement)
-            writeOptions.lineType = e.srcElement.getAttribute("lineType")
-            write(writeOptions)
-        }
-    }
-
-    function setLineWidth(e) {
-        let value = Number(e.srcElement.value) * 0.1
-        if (value === 0) {
-            value = 1
-        }
-        writeOptions.lineWidth = value.toFixed(0)
-        write(writeOptions)
-    }
-
-    function setColor(e) {
-        if (e.srcElement.className.includes("bupu-module-item")) {
-            changeIsSelected(writeColorDom.children, e.srcElement)
-            writeOptions.color = e.srcElement.getAttribute("color")
-            write(writeOptions)
-        }
-    }
-
-
-    let writeLineTypeDom = document.getElementById("bupu-write-linetype")
-    let writeColorDom = document.getElementById("bupu-write-color")
-    let writeLineWidthDom = document.getElementById("bupu-write-linewidth")
-    //清除
-    writeLineWidthDom.removeEventListener("change", setLineWidth)
-    writeLineTypeDom.removeEventListener("click", setLineType)
-    writeColorDom.removeEventListener("click", setColor)
-    //添加绑定事件
-    writeLineWidthDom.addEventListener("change", setLineWidth)
-    writeLineTypeDom.addEventListener("click", setLineType)
-    writeColorDom.addEventListener("click", setColor)
-
+    bindWriteEvents(writeOptions, write)
 }
 
-//绘图部分事件绑定
 function drawEventBinding() {
-
-    function setShapeType(e) {
-        if (e.srcElement.className.includes("bupu-module-item")) {
-            changeIsSelected(drawShapeTypeDom.children, e.srcElement)
-            drawOptions.shapeType = e.srcElement.getAttribute("shapeType")
-            draw(drawOptions)
-        }
-    }
-
-    function setLineWidth(e) {
-        let value = Number(e.srcElement.value) * 0.1
-        if (value === 0) {
-            value = 1
-        }
-        drawOptions.lineWidth = value.toFixed(0)
-        draw(drawOptions)
-    }
-
-    function setColor(e) {
-        if (e.srcElement.className.includes("bupu-module-item")) {
-            changeIsSelected(drawColorDom.children, e.srcElement)
-            drawOptions.color = e.srcElement.getAttribute("color")
-            draw(drawOptions)
-        }
-    }
-
-    let drawShapeTypeDom = document.getElementById("bupu-draw-shapetype")
-    let drawColorDom = document.getElementById("bupu-draw-color")
-    let drawLineWidthDom = document.getElementById("bupu-draw-linewidth")
-    drawLineWidthDom.addEventListener("change", setLineWidth)
-    drawShapeTypeDom.addEventListener("click", setShapeType)
-    drawColorDom.addEventListener("click", setColor)
+    bindDrawEvents(drawOptions, draw)
 }
 
-//文字部分事件绑定
 function textEventBinding() {
-    function setFont(e) {
-        let value = Number(e.srcElement.value) * 0.5
-        if (value === 0) {
-            value = 1
-        }
-        textOptions.fontSize = Number(value.toFixed(0))
-        textOptions.font = value.toFixed(0) + "px Arial"
-        text(textOptions)
-    }
-
-    function setColor(e) {
-        if (e.srcElement.className.includes("bupu-module-item")) {
-            changeIsSelected(textColorDom.children, e.srcElement)
-            textOptions.color = e.srcElement.getAttribute("color")
-            text(textOptions)
-        }
-    }
-
-    let textFontDom = document.getElementById("bupu-text-fontsize")
-    let textColorDom = document.getElementById("bupu-text-color")
-    textFontDom.addEventListener("change", setFont)
-    textColorDom.addEventListener("click", setColor)
+    bindTextEvents(textOptions, text)
 }
 
 //监控分辨率变化

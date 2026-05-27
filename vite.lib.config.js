@@ -22,8 +22,8 @@ export default defineConfig({
         lib: {
             entry: [resolve(__dirname, 'src/index.js')],
             formats: ["es", "cjs", "iife", "umd", "amd", "system"],
-            name: "Bupu-board",
-            fileName: 'Bupu-board'
+            name: "z-board",
+            fileName: 'z-board'
         }
     }
 })

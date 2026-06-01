@@ -1,13 +1,6 @@
-import {
-    screenShotDataSet,
-    domAppendChild
-} from "/src/utils/index"
-import {
-    tooltip
-} from "/src/components/tooltip"
-import {
-    popover
-} from "/src/components/popover"
+import { screenShotDataSet, domAppendChild } from "/src/utils/index"
+import { tooltip } from "/src/components/tooltip"
+import { popover } from "/src/components/popover"
 import borderGif from "/src/assets/image/border.gif"
 import {
     renderCanvas,
@@ -21,7 +14,7 @@ import {
     renderSelectRange
 } from "/src/modules/common/render"
 
-let colorTypeList = screenShotDataSet.colorList
+let colorTypeList: string[] = screenShotDataSet.colorList
 
 export {
     renderCanvas,
@@ -35,7 +28,7 @@ export {
     renderSelectRange
 }
 
-export function renderDraw() {
+export function renderDraw(): HTMLDivElement {
     let dom = document.createElement("div")
     dom.id = "toolbar-draw"
     dom.className = "bupu-toolbar-content__item"
@@ -48,7 +41,7 @@ export function renderDraw() {
         content: getPopoverDom()
     })
 
-    function getPopoverDom() {
+    function getPopoverDom(): DocumentFragment {
         let drawTypeList = [
             `<span class="iconfont icon-juxing"></span>`,
             `<span class="iconfont icon-xingzhuang-sanjiaoxing"></span>`,
@@ -62,7 +55,7 @@ export function renderDraw() {
         drawTypeList.forEach((item, index) => {
             let shapeItem = document.createElement("div")
             shapeItem.className = index === 0 ? "bupu-module-item is-selected" : "bupu-module-item"
-            shapeItem.setAttribute("shapeType", index)
+            shapeItem.setAttribute("shapeType", index.toString())
             shapeItem.innerHTML = item
             shapeTypeDom.appendChild(shapeItem)
         })
@@ -75,7 +68,7 @@ export function renderDraw() {
     return dom
 }
 
-export function renderWrite() {
+export function renderWrite(): HTMLDivElement {
     let dom = document.createElement("div")
     dom.id = "toolbar-write"
     dom.className = "bupu-toolbar-content__item"
@@ -88,7 +81,7 @@ export function renderWrite() {
         content: getPopoverDom()
     })
 
-    function getPopoverDom() {
+    function getPopoverDom(): DocumentFragment {
         let lineTypeList = [
             `<span class="iconfont icon-ziyouquxian"></span>`,
             `<span class="iconfont icon-straight"></span>`
@@ -100,7 +93,7 @@ export function renderWrite() {
         lineTypeList.forEach((item, index) => {
             let lineTypeItem = document.createElement("div")
             lineTypeItem.className = index === 0 ? "bupu-module-item is-selected" : "bupu-module-item"
-            lineTypeItem.setAttribute("lineType", index)
+            lineTypeItem.setAttribute("lineType", index.toString())
             lineTypeItem.innerHTML = item
             lineTypeDom.appendChild(lineTypeItem)
         })
@@ -113,7 +106,7 @@ export function renderWrite() {
     return dom
 }
 
-export function renderText() {
+export function renderText(): HTMLDivElement {
     let dom = document.createElement("div")
     dom.id = "toolbar-text"
     dom.className = "bupu-toolbar-content__item"
@@ -126,7 +119,7 @@ export function renderText() {
         content: getPopoverDom()
     })
 
-    function getPopoverDom() {
+    function getPopoverDom(): DocumentFragment {
         let popoverDom = document.createDocumentFragment()
         let fontSizeDom = createLineWidthRange("bupu-text", 30)
         let colorDom = createColorModule(colorTypeList, "bupu-text")
@@ -137,7 +130,7 @@ export function renderText() {
     return dom
 }
 
-function createColorModule(colorTypeList, prefix, defaultIndex = 0) {
+function createColorModule(colorTypeList: string[], prefix: string, defaultIndex: number = 0): HTMLDivElement {
     let colorDom = document.createElement("div")
     colorDom.className = "bupu-module"
     colorDom.id = `${prefix}-color`
@@ -154,18 +147,18 @@ function createColorModule(colorTypeList, prefix, defaultIndex = 0) {
     return colorDom
 }
 
-function createLineWidthRange(prefix, defaultValue = 20) {
+function createLineWidthRange(prefix: string, defaultValue: number = 20): HTMLDivElement {
     let rangeDom = document.createElement("div")
     rangeDom.className = "bupu-range"
     let rangeInput = document.createElement("input")
     rangeInput.type = "range"
-    rangeInput.value = defaultValue
+    rangeInput.value = defaultValue.toString()
     rangeInput.id = `${prefix}-linewidth`
     rangeDom.appendChild(rangeInput)
     return rangeDom
 }
 
-export function renderScreenShotSelectRange(domList) {
+export function renderScreenShotSelectRange(domList?: HTMLElement[]): HTMLDivElement {
     let selectBox = document.createElement("div")
     selectBox.id = "bupu-select-range"
     let borderList = ["left", "right", "top", "bottom"]
@@ -191,28 +184,28 @@ export function renderScreenShotSelectRange(domList) {
     return selectBox
 }
 
-export function updatePaginationText(v) {
+export function updatePaginationText(v: string): void {
     let paginationTextDom = document.getElementById("toolbar-pagination-page")
     if (paginationTextDom) {
         paginationTextDom.innerHTML = v
     }
 }
 
-export function renderScreenShotBackground() {
+export function renderScreenShotBackground(): HTMLImageElement {
     let bgDom = document.createElement("img")
     bgDom.className = "bupu-screen-shot__background"
     bgDom.src = `${screenShotDataSet.imageUrl}`
     return bgDom
 }
 
-export function renderScreenShotCut() {
+export function renderScreenShotCut(): HTMLImageElement {
     let bgDom = document.createElement("img")
     bgDom.className = "bupu-screen-shot__cut"
     bgDom.src = `${screenShotDataSet.imageUrl}`
     return bgDom
 }
 
-export function renderExitScreenShot() {
+export function renderExitScreenShot(): HTMLDivElement {
     let dom = document.createElement("div")
     dom.id = "toolbar-exit"
     dom.className = "bupu-toolbar-content__item"
@@ -224,7 +217,7 @@ export function renderExitScreenShot() {
     return dom
 }
 
-export function renderSuccessScreenShot() {
+export function renderSuccessScreenShot(): HTMLDivElement {
     let dom = document.createElement("div")
     dom.id = "toolbar-success"
     dom.className = "bupu-toolbar-content__item"

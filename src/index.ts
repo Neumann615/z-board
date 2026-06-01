@@ -8,12 +8,12 @@ export {
     initWhiteBoard,
     unmountWhiteBoard
 } from "./modules/whiteboard/core"
+
 export {
     initScreenShot,
     unmountScreenShot
-}
-from "./modules/screenshot/core"
+} from "./modules/screenshot/core"
+
 export {
     updateCanvasHistory
-}
-from "./modules/whiteboard/toolbar"
+} from "./modules/whiteboard/toolbar"

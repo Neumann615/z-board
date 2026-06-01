@@ -1,70 +1,42 @@
-import {
-    tooltip
-} from "/src/components/tooltip"
-import {
-    popover
-} from "/src/components/popover"
+import { tooltip } from "/src/components/tooltip"
+import { popover } from "/src/components/popover"
+// @ts-ignore
 import borderGif from "/src/assets/image/border.gif"
-import {
-    domAppendChild
-} from "/src/utils/index"
+import { domAppendChild } from "/src/utils/index"
 
-// ============================================
-// 基础 DOM 元素渲染
-// ============================================
+interface DrawOptions {
+  lineWidth?: number
+}
 
-/**
- * 创建主画布元素
- * @returns {HTMLCanvasElement}
- */
-export function renderCanvas() {
+interface WriteOptions {
+  lineWidth?: number
+}
+
+export function renderCanvas(): HTMLCanvasElement {
     let canvas = document.createElement("canvas")
     canvas.className = "bupu-canvas"
     return canvas
 }
 
-/**
- * 创建临时画布元素（用于绘制过程中的预览）
- * @returns {HTMLCanvasElement}
- */
-export function renderTemporaryCanvas() {
+export function renderTemporaryCanvas(): HTMLCanvasElement {
     let canvas = document.createElement("canvas")
     canvas.className = "bupu-temporary-canvas"
     return canvas
 }
 
-/**
- * 创建画板容器元素
- * @returns {HTMLDivElement}
- */
-export function renderContainer() {
+export function renderContainer(): HTMLDivElement {
     let container = document.createElement("div")
     container.className = "bupu-container"
     return container
 }
 
-/**
- * 创建遮罩层元素
- * @returns {HTMLDivElement}
- */
-export function renderOverlay() {
+export function renderOverlay(): HTMLDivElement {
     let dom = document.createElement("div")
     dom.className = "bupu-overlay"
     return dom
 }
 
-// ============================================
-// 工具栏工具渲染
-// ============================================
-
-/**
- * 创建绘图工具按钮（矩形、三角形、圆形、菱形）
- * @param {string[]} colorTypeList - 可选颜色列表
- * @param {Object} options - 配置选项
- * @param {number} options.lineWidth - 默认线条粗细
- * @returns {HTMLDivElement}
- */
-export function renderDraw(colorTypeList, options = {}) {
+export function renderDraw(colorTypeList: string[], options: DrawOptions = {}): HTMLDivElement {
     let dom = document.createElement("div")
     dom.id = "toolbar-draw"
     dom.className = "bupu-toolbar-content__item"
@@ -79,11 +51,7 @@ export function renderDraw(colorTypeList, options = {}) {
         content: getPopoverDom()
     })
 
-    /**
-     * 获取绘图工具的弹窗内容
-     * 包含：图形类型选择、线条粗细、颜色选择
-     */
-    function getPopoverDom() {
+    function getPopoverDom(): DocumentFragment {
         let drawTypeList = [
             `<span class="iconfont icon-juxing"></span>`,
             `<span class="iconfont icon-xingzhuang-sanjiaoxing"></span>`,
@@ -98,7 +66,7 @@ export function renderDraw(colorTypeList, options = {}) {
         drawTypeList.forEach((item, index) => {
             let shapeItem = document.createElement("div")
             shapeItem.className = index === 0 ? "bupu-module-item is-selected" : "bupu-module-item"
-            shapeItem.setAttribute("shapeType", index)
+            shapeItem.setAttribute("shapeType", index.toString())
             shapeItem.innerHTML = item
             shapeTypeDom.appendChild(shapeItem)
         })
@@ -113,14 +81,7 @@ export function renderDraw(colorTypeList, options = {}) {
     return dom
 }
 
-/**
- * 创建书写工具按钮（自由曲线、直线）
- * @param {string[]} colorTypeList - 可选颜色列表
- * @param {Object} options - 配置选项
- * @param {number} options.lineWidth - 默认线条粗细
- * @returns {HTMLDivElement}
- */
-export function renderWrite(colorTypeList, options = {}) {
+export function renderWrite(colorTypeList: string[], options: WriteOptions = {}): HTMLDivElement {
     let dom = document.createElement("div")
     dom.id = "toolbar-write"
     dom.className = "bupu-toolbar-content__item"
@@ -135,11 +96,7 @@ export function renderWrite(colorTypeList, options = {}) {
         content: getPopoverDom()
     })
 
-    /**
-     * 获取书写工具的弹窗内容
-     * 包含：线条类型选择、线条粗细、颜色选择
-     */
-    function getPopoverDom() {
+    function getPopoverDom(): DocumentFragment {
         let lineTypeList = [
             `<span class="iconfont icon-ziyouquxian"></span>`,
             `<span class="iconfont icon-straight"></span>`
@@ -152,7 +109,7 @@ export function renderWrite(colorTypeList, options = {}) {
         lineTypeList.forEach((item, index) => {
             let lineTypeItem = document.createElement("div")
             lineTypeItem.className = index === 0 ? "bupu-module-item is-selected" : "bupu-module-item"
-            lineTypeItem.setAttribute("lineType", index)
+            lineTypeItem.setAttribute("lineType", index.toString())
             lineTypeItem.innerHTML = item
             lineTypeDom.appendChild(lineTypeItem)
         })
@@ -167,12 +124,7 @@ export function renderWrite(colorTypeList, options = {}) {
     return dom
 }
 
-/**
- * 创建文本工具按钮
- * @param {string[]} colorTypeList - 可选颜色列表
- * @returns {HTMLDivElement}
- */
-export function renderText(colorTypeList) {
+export function renderText(colorTypeList: string[]): HTMLDivElement {
     let dom = document.createElement("div")
     dom.id = "toolbar-text"
     dom.className = "bupu-toolbar-content__item"
@@ -187,11 +139,7 @@ export function renderText(colorTypeList) {
         content: getPopoverDom()
     })
 
-    /**
-     * 获取文本工具的弹窗内容
-     * 包含：字体大小、颜色选择
-     */
-    function getPopoverDom() {
+    function getPopoverDom(): DocumentFragment {
         let popoverDom = document.createDocumentFragment()
         let fontSizeDom = createLineWidthRange("bupu-text", 30)
         let colorDom = createColorModule(colorTypeList, "bupu-text")
@@ -202,11 +150,7 @@ export function renderText(colorTypeList) {
     return dom
 }
 
-/**
- * 创建指针工具按钮
- * @returns {HTMLDivElement}
- */
-export function renderPointer() {
+export function renderPointer(): HTMLDivElement {
     let dom = document.createElement("div")
     dom.id = "toolbar-pointer"
     dom.className = "bupu-toolbar-content__item"
@@ -218,11 +162,7 @@ export function renderPointer() {
     return dom
 }
 
-/**
- * 创建撤销工具按钮
- * @returns {HTMLDivElement}
- */
-export function renderUndo() {
+export function renderUndo(): HTMLDivElement {
     let dom = document.createElement("div")
     dom.id = "toolbar-undo"
     dom.className = "bupu-toolbar-content__item"
@@ -234,11 +174,7 @@ export function renderUndo() {
     return dom
 }
 
-/**
- * 创建反撤销工具按钮
- * @returns {HTMLDivElement}
- */
-export function renderRedo() {
+export function renderRedo(): HTMLDivElement {
     let dom = document.createElement("div")
     dom.id = "toolbar-redo"
     dom.className = "bupu-toolbar-content__item"
@@ -250,11 +186,7 @@ export function renderRedo() {
     return dom
 }
 
-/**
- * 创建橡皮擦工具按钮
- * @returns {HTMLDivElement}
- */
-export function renderEraser() {
+export function renderEraser(): HTMLDivElement {
     let dom = document.createElement("div")
     dom.id = "toolbar-eraser"
     dom.className = "bupu-toolbar-content__item"
@@ -266,11 +198,7 @@ export function renderEraser() {
     return dom
 }
 
-/**
- * 创建保存工具按钮
- * @returns {HTMLDivElement}
- */
-export function renderSave() {
+export function renderSave(): HTMLDivElement {
     let dom = document.createElement("div")
     dom.id = "toolbar-save"
     dom.className = "bupu-toolbar-content__item"
@@ -282,11 +210,7 @@ export function renderSave() {
     return dom
 }
 
-/**
- * 创建打开文件工具按钮
- * @returns {HTMLDivElement}
- */
-export function renderOpenFile() {
+export function renderOpenFile(): HTMLDivElement {
     let dom = document.createElement("div")
     dom.id = "toolbar-open-file"
     dom.className = "bupu-toolbar-content__item"
@@ -298,11 +222,7 @@ export function renderOpenFile() {
     return dom
 }
 
-/**
- * 创建添加页面工具按钮
- * @returns {HTMLDivElement}
- */
-export function renderAddPage() {
+export function renderAddPage(): HTMLDivElement {
     let dom = document.createElement("div")
     dom.id = "toolbar-add-page"
     dom.className = "bupu-toolbar-content__item"
@@ -314,11 +234,7 @@ export function renderAddPage() {
     return dom
 }
 
-/**
- * 创建删除页面工具按钮
- * @returns {HTMLDivElement}
- */
-export function renderDeletePage() {
+export function renderDeletePage(): HTMLDivElement {
     let dom = document.createElement("div")
     dom.id = "toolbar-delete-page"
     dom.className = "bupu-toolbar-content__item"
@@ -330,11 +246,7 @@ export function renderDeletePage() {
     return dom
 }
 
-/**
- * 创建重置工具按钮
- * @returns {HTMLDivElement}
- */
-export function renderReset() {
+export function renderReset(): HTMLDivElement {
     let dom = document.createElement("div")
     dom.id = "toolbar-reset"
     dom.className = "bupu-toolbar-content__item"
@@ -346,15 +258,7 @@ export function renderReset() {
     return dom
 }
 
-// ============================================
-// 分页器与工具栏布局
-// ============================================
-
-/**
- * 创建分页器组件（上一页、当前页、下一页）
- * @returns {HTMLDivElement}
- */
-export function renderPagination() {
+export function renderPagination(): HTMLDivElement {
     let dom = document.createElement("div")
     dom.className = "bupu-toolbar-child bupu-toolbar-vertical"
 
@@ -376,11 +280,7 @@ export function renderPagination() {
     return dom
 }
 
-/**
- * 创建选中元素的移动工具栏（置顶、置底）
- * @returns {HTMLDivElement}
- */
-export function renderMoveToolbar() {
+export function renderMoveToolbar(): HTMLDivElement {
     let selectToolbar = document.createElement("div")
     selectToolbar.id = "bupu-move-toolbar"
 
@@ -406,19 +306,10 @@ export function renderMoveToolbar() {
     return selectToolbar
 }
 
-// ============================================
-// 选中范围与边界渲染
-// ============================================
-
-/**
- * 创建选中范围框（带8个控制点和4条边线）
- * @returns {HTMLDivElement}
- */
-export function renderSelectRange() {
+export function renderSelectRange(): HTMLDivElement {
     let selectBox = document.createElement("div")
     selectBox.id = "bupu-select-range"
 
-    // 4条边线
     let borderList = ["left", "right", "top", "bottom"]
     borderList.forEach(item => {
         let borderDom = document.createElement("div")
@@ -427,7 +318,6 @@ export function renderSelectRange() {
         selectBox.appendChild(borderDom)
     })
 
-    // 8个控制点（用于缩放）
     let blockList = ["left", "right", "top", "bottom", "leftTop", "leftBottom", "rightTop", "rightBottom"]
     blockList.forEach(item => {
         let blockDom = document.createElement("div")
@@ -438,29 +328,14 @@ export function renderSelectRange() {
     return selectBox
 }
 
-/**
- * 更新分页器显示的页码文本
- * @param {string} v - 页码文本，格式如 "1/3"
- */
-export function updatePaginationText(v) {
+export function updatePaginationText(v: string): void {
     let paginationTextDom = document.getElementById("toolbar-pagination-page")
     if (paginationTextDom) {
         paginationTextDom.innerHTML = v
     }
 }
 
-// ============================================
-// 公共辅助函数
-// ============================================
-
-/**
- * 创建颜色选择模块
- * @param {string[]} colorTypeList - 颜色列表
- * @param {string} prefix - DOM 元素 ID 前缀
- * @param {number} defaultIndex - 默认选中的索引
- * @returns {HTMLDivElement}
- */
-function createColorModule(colorTypeList, prefix, defaultIndex = 0) {
+function createColorModule(colorTypeList: string[], prefix: string, defaultIndex: number = 0): HTMLDivElement {
     let colorDom = document.createElement("div")
     colorDom.className = "bupu-module"
     colorDom.id = `${prefix}-color`
@@ -481,19 +356,13 @@ function createColorModule(colorTypeList, prefix, defaultIndex = 0) {
     return colorDom
 }
 
-/**
- * 创建线条粗细滑动条
- * @param {string} prefix - DOM 元素 ID 前缀
- * @param {number} defaultValue - 默认值
- * @returns {HTMLDivElement}
- */
-function createLineWidthRange(prefix, defaultValue = 20) {
+function createLineWidthRange(prefix: string, defaultValue: number = 20): HTMLDivElement {
     let rangeDom = document.createElement("div")
     rangeDom.className = "bupu-range"
 
     let rangeInput = document.createElement("input")
     rangeInput.type = "range"
-    rangeInput.value = defaultValue
+    rangeInput.value = defaultValue.toString()
     rangeInput.id = `${prefix}-linewidth`
 
     rangeDom.appendChild(rangeInput)

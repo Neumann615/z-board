@@ -1,15 +1,7 @@
-import {
-    whiteBoardDataSet
-} from "../../utils"
-import {
-    domAppendChild
-} from "/src/utils/index"
-import {
-    tooltip
-} from "/src/components/tooltip"
-import {
-    popover
-} from "/src/components/popover"
+import { whiteBoardDataSet } from "../../utils"
+import { domAppendChild } from "/src/utils/index"
+import { tooltip } from "/src/components/tooltip"
+import { popover } from "/src/components/popover"
 import {
     renderCanvas,
     renderTemporaryCanvas,
@@ -30,7 +22,7 @@ import {
     updatePaginationText
 } from "/src/modules/common/render"
 
-let colorTypeList = whiteBoardDataSet.colorList
+let colorTypeList: string[] = whiteBoardDataSet.colorList
 
 export {
     renderCanvas,
@@ -52,7 +44,7 @@ export {
     updatePaginationText
 }
 
-export function renderDraw() {
+export function renderDraw(): HTMLDivElement {
     let dom = document.createElement("div")
     dom.id = "toolbar-draw"
     dom.className = "bupu-toolbar-content__item"
@@ -65,7 +57,7 @@ export function renderDraw() {
         content: getPopoverDom()
     })
 
-    function getPopoverDom() {
+    function getPopoverDom(): DocumentFragment {
         let drawTypeList = [
             `<span class="iconfont icon-juxing"></span>`,
             `<span class="iconfont icon-xingzhuang-sanjiaoxing"></span>`,
@@ -79,7 +71,7 @@ export function renderDraw() {
         drawTypeList.forEach((item, index) => {
             let shapeItem = document.createElement("div")
             shapeItem.className = index === 0 ? "bupu-module-item is-selected" : "bupu-module-item"
-            shapeItem.setAttribute("shapeType", index)
+            shapeItem.setAttribute("shapeType", index.toString())
             shapeItem.innerHTML = item
             shapeTypeDom.appendChild(shapeItem)
         })
@@ -92,7 +84,7 @@ export function renderDraw() {
     return dom
 }
 
-export function renderWrite() {
+export function renderWrite(): HTMLDivElement {
     let dom = document.createElement("div")
     dom.id = "toolbar-write"
     dom.className = "bupu-toolbar-content__item"
@@ -105,7 +97,7 @@ export function renderWrite() {
         content: getPopoverDom()
     })
 
-    function getPopoverDom() {
+    function getPopoverDom(): DocumentFragment {
         let lineTypeList = [
             `<span class="iconfont icon-ziyouquxian"></span>`,
             `<span class="iconfont icon-straight"></span>`
@@ -117,7 +109,7 @@ export function renderWrite() {
         lineTypeList.forEach((item, index) => {
             let lineTypeItem = document.createElement("div")
             lineTypeItem.className = index === 0 ? "bupu-module-item is-selected" : "bupu-module-item"
-            lineTypeItem.setAttribute("lineType", index)
+            lineTypeItem.setAttribute("lineType", index.toString())
             lineTypeItem.innerHTML = item
             lineTypeDom.appendChild(lineTypeItem)
         })
@@ -130,7 +122,7 @@ export function renderWrite() {
     return dom
 }
 
-export function renderText() {
+export function renderText(): HTMLDivElement {
     let dom = document.createElement("div")
     dom.id = "toolbar-text"
     dom.className = "bupu-toolbar-content__item"
@@ -143,7 +135,7 @@ export function renderText() {
         content: getPopoverDom()
     })
 
-    function getPopoverDom() {
+    function getPopoverDom(): DocumentFragment {
         let popoverDom = document.createDocumentFragment()
         let fontSizeDom = createLineWidthRange("bupu-text", 30)
         let colorDom = createColorModule(colorTypeList, "bupu-text")
@@ -154,7 +146,7 @@ export function renderText() {
     return dom
 }
 
-function createColorModule(colorTypeList, prefix, defaultIndex = 0) {
+function createColorModule(colorTypeList: string[], prefix: string, defaultIndex: number = 0): HTMLDivElement {
     let colorDom = document.createElement("div")
     colorDom.className = "bupu-module"
     colorDom.id = `${prefix}-color`
@@ -171,18 +163,18 @@ function createColorModule(colorTypeList, prefix, defaultIndex = 0) {
     return colorDom
 }
 
-function createLineWidthRange(prefix, defaultValue = 20) {
+function createLineWidthRange(prefix: string, defaultValue: number = 20): HTMLDivElement {
     let rangeDom = document.createElement("div")
     rangeDom.className = "bupu-range"
     let rangeInput = document.createElement("input")
     rangeInput.type = "range"
-    rangeInput.value = defaultValue
+    rangeInput.value = defaultValue.toString()
     rangeInput.id = `${prefix}-linewidth`
     rangeDom.appendChild(rangeInput)
     return rangeDom
 }
 
-export function renderImage() {
+export function renderImage(): HTMLDivElement {
     let dom = document.createElement("div")
     dom.id = "toolbar-image"
     dom.className = "bupu-toolbar-content__item"

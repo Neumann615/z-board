@@ -1,9 +1,14 @@
-import {domAppendChild, initPosition, nowModule, screenShotDataSet} from "../utils/index";
+import { domAppendChild, initPosition, nowModule, screenShotDataSet } from "../utils/index"
+
+interface TooltipParams {
+  placement: string
+  content: string
+}
 
 let isTooltip = true
 
-export function tooltip(dom, params) {
-    let {placement, content} = params
+export function tooltip(dom: HTMLElement, params: TooltipParams): void {
+    let { placement, content } = params
     let tooltipDom = document.createElement("div")
     tooltipDom.className = "bupu-tooltip"
     let arrowDom = document.createElement("span")
@@ -12,6 +17,7 @@ export function tooltip(dom, params) {
     contentDom.className = "bupu-tooltip-content"
     contentDom.innerText = content
     domAppendChild(tooltipDom, [arrowDom, contentDom])
+
     dom.addEventListener("mouseover", () => {
         let rect = dom.getBoundingClientRect()
         let flag = true
@@ -24,6 +30,7 @@ export function tooltip(dom, params) {
         isTooltip = flag
         document.body.appendChild(tooltipDom)
         arrowDom.style = null
+
         if (nowModule === "whiteboard") {
             tooltipDom.style.left = rect.x + rect.width + 20 + "px"
             tooltipDom.style.top = rect.y + (rect.height - tooltipDom.clientHeight) / 2 + "px"
@@ -54,10 +61,9 @@ export function tooltip(dom, params) {
     })
 
     dom.addEventListener("mouseleave", () => {
-        if (isTooltip && tooltipDom) {
+        if (isTooltip && tooltipDom && tooltipDom.parentElement === document.body) {
             document.body.removeChild(tooltipDom)
             isTooltip = false
         }
     })
 }
-

@@ -1,9 +1,14 @@
-import {domAppendChild, initPosition, nowModule, screenShotDataSet} from "../utils/index";
+import { domAppendChild, initPosition, nowModule, screenShotDataSet } from "../utils/index"
+
+interface PopoverParams {
+  placement?: string
+  content: Node
+}
 
 let isPopover = false
 
-export function popover(dom, params) {
-    let {placement, content} = params
+export function popover(dom: HTMLElement, params: PopoverParams): void {
+    let { content } = params
     let popoverDom = document.createElement("div")
     popoverDom.className = "bupu-popover"
     let arrowDom = document.createElement("span")
@@ -12,10 +17,12 @@ export function popover(dom, params) {
     contentDom.className = "bupu-popover-content"
     contentDom.appendChild(content)
     domAppendChild(popoverDom, [arrowDom, contentDom])
-    dom.addEventListener("click", (e) => {
+
+    dom.addEventListener("click", (e: MouseEvent) => {
         let rect = dom.getBoundingClientRect()
         document.body.appendChild(popoverDom)
         arrowDom.style = null
+
         if (nowModule === "whiteboard") {
             popoverDom.style.left = rect.x + rect.width + 20 + "px"
             popoverDom.style.top = rect.y + (rect.height - popoverDom.clientHeight) / 2 + "px"
@@ -49,11 +56,11 @@ export function popover(dom, params) {
     })
 }
 
-document.body.addEventListener("mousedown", (e) => {
+document.body.addEventListener("mousedown", (e: MouseEvent) => {
     if (isPopover) {
         let isRemove = true
-        e.composedPath()?.forEach(item => {
-            item.classList && item.classList.length && item.classList.forEach(className => {
+        e.composedPath()?.forEach((item: Element) => {
+            item.classList && item.classList.length && item.classList.forEach((className: string) => {
                 if (className == "bupu-popover") {
                     isRemove = false
                 }
@@ -61,7 +68,7 @@ document.body.addEventListener("mousedown", (e) => {
         })
         if (isRemove) {
             let popoverList = document.getElementsByClassName("bupu-popover")
-            if (popoverList && popoverList.length) {
+            if (popoverList && popoverList.length && popoverList[0].parentElement === document.body) {
                 document.body.removeChild(popoverList[0])
                 isPopover = false
             }
@@ -69,11 +76,11 @@ document.body.addEventListener("mousedown", (e) => {
     }
 })
 
-document.body.addEventListener("touchstart",(e)=>{
+document.body.addEventListener("touchstart", (e: TouchEvent) => {
     if (isPopover) {
         let isRemove = true
-        e.composedPath()?.forEach(item => {
-            item.classList && item.classList.length && item.classList.forEach(className => {
+        e.composedPath()?.forEach((item: Element) => {
+            item.classList && item.classList.length && item.classList.forEach((className: string) => {
                 if (className == "bupu-popover") {
                     isRemove = false
                 }
@@ -81,7 +88,7 @@ document.body.addEventListener("touchstart",(e)=>{
         })
         if (isRemove) {
             let popoverList = document.getElementsByClassName("bupu-popover")
-            if (popoverList && popoverList.length) {
+            if (popoverList && popoverList.length && popoverList[0].parentElement === document.body) {
                 document.body.removeChild(popoverList[0])
                 isPopover = false
             }

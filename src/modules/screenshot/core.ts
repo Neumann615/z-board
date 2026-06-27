@@ -66,6 +66,9 @@ let saveDom: HTMLDivElement | null = null
 let exitDom: HTMLDivElement | null = null
 let successDom: HTMLDivElement | null = null
 let mountDom: HTMLElement | null = null
+let imageResizeHandler: (() => void) | null = null
+let originalContainerW = 0
+let originalContainerH = 0
 
 export let screenShotToolbarDom: HTMLDivElement | null = null
 export let screenShotBackgroundDom: HTMLImageElement | null = null
@@ -216,7 +219,11 @@ let initScreenShotBackground = function(): Promise<boolean> {
         cacheImage.crossOrigin = "*"
         image.src = screenShotCutDom!.src
         image.onload = () => {
-            ctx.drawImage(image, x1, y1, w, h, 0, 0, w, h)
+            let scaleX = originalContainerW > 0 ? image.naturalWidth / originalContainerW : 1
+            let scaleY = originalContainerH > 0 ? image.naturalHeight / originalContainerH : 1
+            let sx = x1 * scaleX, sy = y1 * scaleY
+            let sw = w * scaleX, sh = h * scaleY
+            ctx.drawImage(image, sx, sy, sw, sh, 0, 0, w, h)
             let imageUrl = canvasDom!.toDataURL("image/png", 1)
             let drawData = { x: 0, y: 0, w, h, imageUrl }
             addCanvasData(1, getRectAreaData(0, 0, w, h), {
@@ -236,6 +243,26 @@ let initScreenShotBackground = function(): Promise<boolean> {
         containerDom = editBox
         observerCanvasResolution(editBox)
         initScreenShotBackground = () => Promise.resolve(true)
+    })
+}
+
+/** 将图片缩放至填满容器，保证自然尺寸与容器一致 → 坐标 1:1 对应 */
+function scaleImageToFit(imageUrl: string, containerW: number, containerH: number): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.onload = () => {
+            const c = document.createElement('canvas')
+            c.width = containerW; c.height = containerH
+            const ctx = c.getContext('2d')!
+            const scale = Math.max(containerW / img.naturalWidth, containerH / img.naturalHeight)
+            const dw = img.naturalWidth * scale
+            const dh = img.naturalHeight * scale
+            ctx.drawImage(img, (containerW - dw) / 2, (containerH - dh) / 2, dw, dh)
+            resolve(c.toDataURL('image/jpeg', 0.92))
+        }
+        img.onerror = reject
+        img.src = imageUrl
     })
 }
 
@@ -274,6 +301,29 @@ export function initScreenShot(dom: HTMLElement, options: ScreenShotOptions): vo
 
     containerDom!.style.background = "#000"
     dom.appendChild(containerDom!)
+
+    // 图片缩放至容器尺寸，保证坐标一一对应
+    originalContainerW = containerDom!.clientWidth
+    originalContainerH = containerDom!.clientHeight
+    imageResizeHandler = () => {
+        const w = containerDom!.clientWidth
+        const h = containerDom!.clientHeight
+        if (w > 0 && h > 0) {
+            screenShotBackgroundDom!.style.width = w + "px"
+            screenShotBackgroundDom!.style.height = h + "px"
+            screenShotCutDom!.style.width = w + "px"
+            screenShotCutDom!.style.height = h + "px"
+            originalContainerW = w
+            originalContainerH = h
+        }
+    }
+    imageResizeHandler()
+    window.addEventListener("resize", imageResizeHandler)
+    scaleImageToFit(options.imageUrl, originalContainerW, originalContainerH).then((scaledUrl) => {
+        screenShotBackgroundDom!.src = scaledUrl
+        screenShotCutDom!.src = scaledUrl
+        screenShotDataSet.imageUrl = scaledUrl
+    })
 
     getScreenShotCanvasObject(canvasDom!, temporaryCanvasDom!)
     getCanvasObject(canvasDom!, temporaryCanvasDom!)
@@ -317,6 +367,10 @@ export function initScreenShot(dom: HTMLElement, options: ScreenShotOptions): vo
 export function unmountScreenShot(): void {
     if (mountDom) {
         mountDom.innerHTML = ""
+        if (imageResizeHandler) {
+            window.removeEventListener("resize", imageResizeHandler)
+            imageResizeHandler = null
+        }
         resetEventBindings()
         let tooltipList = document.getElementsByClassName("bupu-tooltip")
         let popoverList = document.getElementsByClassName("bupu-popover")
@@ -345,7 +399,11 @@ export function unmountScreenShot(): void {
                 cacheImage.crossOrigin = "*"
                 image.src = screenShotCutDom!.src
                 image.onload = () => {
-                    ctx.drawImage(image, x1, y1, w, h, 0, 0, w, h)
+                    let scaleX = originalContainerW > 0 ? image.naturalWidth / originalContainerW : 1
+                    let scaleY = originalContainerH > 0 ? image.naturalHeight / originalContainerH : 1
+                    let sx = x1 * scaleX, sy = y1 * scaleY
+                    let sw = w * scaleX, sh = h * scaleY
+                    ctx.drawImage(image, sx, sy, sw, sh, 0, 0, w, h)
                     let imageUrl = canvasDom!.toDataURL("image/png", 1)
                     let drawData = { x: 0, y: 0, w, h, imageUrl }
                     addCanvasData(1, getRectAreaData(0, 0, w, h), {

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>白板演示 — Z-Board</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden; background: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .play-back-btn {
+      position: fixed; top: 16px; left: 16px; z-index: 10000;
+      display: inline-flex; align-items: center; padding: 8px 16px;
+      background: #3451b2; color: #fff; border: none; border-radius: 6px;
+      font-size: 14px; cursor: pointer; text-decoration: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15); transition: opacity 0.2s;
+    }
+    .play-back-btn:hover { opacity: 0.9; }
+    .play-stage {
+      position: fixed; inset: 0; width: 100vw; height: 100vh; background: #fff;
+    }
+  </style>
+</head>
+<body>
+  <span class="play-back-btn" id="play-back-btn">返回文档</span>
+  <div class="play-stage" id="wb-demo-container"></div>
+  <script type="module" src="/play/whiteboard.entry.ts"></script>
+</body>
+</html>

@@ -374,6 +374,7 @@
     display: grid;
     place-items: center;
     z-index: 99;
+    color: #333333;
 }
 
 .bupu-toolbar-child {
@@ -392,6 +393,7 @@
     position: absolute;
     z-index: 999;
     background-color: #ffffff;
+    color: #333333;
     box-shadow: 0px 0px 10px rgba(0, 0, 0, .12);
     border-radius: 8px;
     overflow: hidden;

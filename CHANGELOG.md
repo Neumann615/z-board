@@ -4,6 +4,47 @@
 
 ---
 
+## [0.0.94] - 2026-06-27
+
+### ✨ 新特性
+
+- **VitePress 文档站点**
+  - 集成 VitePress，提供结构化文档（指南 / API 参考 / 类型定义）
+  - 支持 `npm run docs:dev` 本地预览、`docs:build` 构建
+  - 自定义主题加载库样式与图标字体，路径别名 `/src/` 直连源码
+
+- **独立 Demo 页面**
+  - 白板和截图全屏演示，独立 HTML 页面，零 VitePress 样式
+  - Vite 插件在 dev 模式下拦截请求，绕过 VitePress 管道
+  - 独立 Vite 多页构建，生产环境合并到 `dist/play/`
+
+- **截图图片缩放内置化**
+  - `scaleImageToFit` 内置到 `initScreenShot` 中
+  - 图片自动缩放至容器像素尺寸，坐标一一对应
+  - 调用方只需传入原始图片 URL，无需手动处理缩放
+
+### 🐛 问题修复
+
+| 问题描述 | 涉及文件 | 状态 |
+|---------|---------|------|
+| 截图背景图与框选区渲染错位 | `screenshot/core.ts` | ✅ 已修复 |
+| Demo 页面 VitePress 暗色模式样式泄漏 | `demo/*.md` | ✅ 已修复 |
+| SPA 路由拦截导致独立 Demo 页面 404 | `theme/index.ts` | ✅ 已修复 |
+| `containerDom` 赋值覆盖导致坐标换算错误 | `screenshot/core.ts` | ✅ 已修复 |
+
+### 📦 变更文件
+
+| 文件 | 变更 |
+|------|------|
+| `docs/` | 新增：文档站点 & Demo 页面 |
+| `src/modules/screenshot/core.ts` | 重构：缩放内置化 + 坐标修正 + resize 监听 |
+| `package.json` | 新增 `docs:*` 脚本 |
+| `.gitignore` | 排除 VitePress 构建产物 |
+| `tsconfig.json` | exclude 排除 `docs/` |
+| `index.html` / `src/main.ts` | 移除（不再需要） |
+
+---
+
 ## [0.0.93] - 2026-06-01
 
 > 🎉 首次发布 npm 包！

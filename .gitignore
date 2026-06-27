@@ -23,3 +23,8 @@ lib
 *.njsproj
 *.sln
 *.sw?
+.vitepress
+
+# VitePress
+docs/.vitepress/dist
+docs/.vitepress/cache

@@ -1,0 +1,19 @@
+/* 导入 z-board 图标字体 */
+@import '/src/assets/iconfont/iconfont.css';
+
+/* 导入 z-board 组件样式 */
+@import '/src/styles/style.css';
+@import '/src/styles/popover.css';
+@import '/src/styles/tooltip.css';
+
+/* 文档演示容器专用样式 */
+.demo-container {
+  width: 100%;
+  height: 80vh;
+  position: relative;
+  border: 2px solid var(--vp-c-divider);
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 16px 0;
+}
+

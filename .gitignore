@@ -23,7 +23,7 @@ lib
 *.njsproj
 *.sln
 *.sw?
-.vitepress
+/.vitepress
 
 # VitePress
 docs/.vitepress/dist

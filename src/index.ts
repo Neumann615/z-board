@@ -1,7 +1,6 @@
 import "./styles/style.css"
 import "./styles/popover.css"
 import "./styles/tooltip.css"
-import "./styles/common.css"
 import "./assets/iconfont/iconfont.css"
 
 export {

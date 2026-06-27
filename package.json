@@ -31,7 +31,7 @@
     "build:demo": "vitepress build docs && vite build --config docs/.vitepress/vite.demo.config.ts",
     "preview": "vite preview",
     "docs:dev": "vitepress dev docs",
-    "docs:build": "vitepress build docs && vite build --config docs/.vitepress/vite.demo.config.ts",
+    "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"
   },
   "keywords": [

@@ -1,0 +1,52 @@
+{
+  "name": "z-board",
+  "version": "0.0.94",
+  "license": "MIT",
+  "author": "Z",
+  "type": "module",
+  "main": "lib/z-board.cjs.js",
+  "module": "lib/z-board.es.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "lib"
+  ],
+  "style": "lib/style.css",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "lib/index.d.ts",
+        "default": "lib/z-board.es.js"
+      },
+      "require": {
+        "types": "lib/index.d.ts",
+        "default": "lib/z-board.cjs.js"
+      }
+    },
+    "./lib/style.css": "./lib/style.css",
+    "./style.css": "./lib/style.css"
+  },
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite --config vite.lib.config.js build",
+    "build:demo": "vitepress build docs",
+    "preview": "vite preview",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
+  },
+  "keywords": [
+    "whiteboard",
+    "screenshot"
+  ],
+  "dependencies": {
+    "js-web-screen-shot": "^1.9.9-rc.7",
+    "msg-alert": "^1.0.0-beta.3",
+    "typescript": "^5.4.5",
+    "z-board": "^0.0.93"
+  },
+  "devDependencies": {
+    "vite": "^4.1.0",
+    "vite-plugin-dts": "^5.0.2",
+    "vitepress": "^1.0.0"
+  }
+}

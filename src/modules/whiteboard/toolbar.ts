@@ -43,11 +43,12 @@ import {
     resolveHistoryContent
 } from "/src/modules/common/history"
 import { renderHistoryOperation } from "/src/modules/common/renderOperation"
-
-function getTargetClassName(event: MouseEvent | TouchEvent): string {
-    const target = event.target as HTMLElement | null
-    return target?.className ?? ""
-}
+import {
+    clearEditableText,
+    clearSelectionFrame,
+    getEventClassName,
+    updateSelectionFrame
+} from "/src/modules/common/selection"
 
 export let canvasHistory: CanvasPage[] = createHistoryPages(3)
 let nowPageIndex = 0
@@ -151,37 +152,26 @@ export function addCanvasData(actionType: number, position: RectAreaData, option
 }
 
 //绘制选中框
-function drawSelect(x1: number, y1: number, x2: number, y2: number, selectIndex?: number): void {
-    if (selectIndex) {
+function drawSelect(x1: number, y1: number, y2: number, x2: number, selectIndex?: number): void {
+    if (selectIndex !== undefined) {
         nowSelectIndex = selectIndex
     }
-    let rect = getRectAreaData(x1, y1, x2, y2)
-    moveToolbarDom!.style.left = rect.x2 + 20 + "px"
-    moveToolbarDom!.style.top = rect.y2 - 10 + "px"
-    selectRangeDom!.style.left = rect.x1 + "px"
-    selectRangeDom!.style.top = rect.y1 + "px"
-    selectRangeDom!.style.width = Math.abs(rect.x1 - rect.x2) + "px"
-    selectRangeDom!.style.height = Math.abs(rect.y1 - rect.y3) + "px"
+    updateSelectionFrame({
+        moveToolbar: moveToolbarDom!,
+        selectRange: selectRangeDom!
+    }, x1, y1, x2, y2)
 }
 
-//清除选中状态
 function clearSelect(): void {
     nowSelectIndex = -1
-    moveToolbarDom!.style.left = -1000 + "px"
-    moveToolbarDom!.style.top = -1000 + "px"
-    selectRangeDom!.style.left = -1000 + "px"
-    selectRangeDom!.style.top = -1000 + "px"
+    clearSelectionFrame({
+        moveToolbar: moveToolbarDom!,
+        selectRange: selectRangeDom!
+    })
 }
 
-//清除文本dom元素
 function clearTextDom(): void {
-    const arr = document.getElementsByClassName('bupu-edit-box')
-    const l = arr.length
-    for (let i = l - 1; i >= 0; i--) {
-        if (arr[i] != null) {
-            arr[i].parentNode!.removeChild(arr[i])
-        }
-    }
+    clearEditableText()
 }
 
 //清除主画板
@@ -312,10 +302,10 @@ export function pointer(): void {
                 }
             })
             //由于是堆叠在上面 因此取最后一个即可
-            if (getTargetClassName(event).indexOf("select-range-block") !== -1 ||
-                getTargetClassName(event).indexOf("select-range-border") !== -1) {
+            if (getEventClassName(event).indexOf("select-range-block") !== -1 ||
+                getEventClassName(event).indexOf("select-range-border") !== -1) {
                 first = xy
-                isStretch = getTargetClassName(event).split("__")[1]
+                isStretch = getEventClassName(event).split("__")[1]
             } else {
                 if (list.length) {
                     /* 特殊处理文字内容，暂时不支持选中 */
@@ -359,8 +349,8 @@ export function pointer(): void {
         last = getPos(event)
         if (isStretch) {
             if (isMobile() ||
-                (getTargetClassName(event).indexOf("select-range-block") == -1 &&
-                 getTargetClassName(event).indexOf("select-range-border") == -1)) {
+                (getEventClassName(event).indexOf("select-range-block") == -1 &&
+                 getEventClassName(event).indexOf("select-range-border") == -1)) {
                 if (last.x <= 15) {
                     last.x = 15
                 }

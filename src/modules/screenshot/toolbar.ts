@@ -30,6 +30,14 @@ import {
 import { renderHistoryOperation } from "/src/modules/common/renderOperation"
 import { downloadDataUrl, exportHTMLElementAsPng } from "/src/modules/common/exportCanvas"
 
+import {
+    createDrawTool,
+    createTextTool,
+    createWriteTool,
+    type CanvasToolContext
+} from "/src/modules/common/canvasTools"
+import { HistoryAction } from "/src/modules/common/history"
+
 import html2canvas from "../../html2canvas.esm"
 import type {
     CanvasOperationItem as CanvasDataItem,
@@ -157,368 +165,30 @@ export async function restoreArtBoardState(canvasDataContent: CanvasDataItem[]):
 
 //线段绘制
 export function write(options: { lineWidth: number; color: string; lineType: number }): void {
-    overlayDom!.style.zIndex = "-1"
-    temporaryCanvas!.style.zIndex = "50"
-    clearSelect()
-    ctx!.lineWidth = options.lineWidth
-    ctx!.strokeStyle = options.color
-    temporaryCtx!.lineWidth = options.lineWidth
-    temporaryCtx!.strokeStyle = options.color
-    let begin: ((event: MouseEvent) => void) | null = null
-    let move: ((event: MouseEvent) => void) | null = null
-    let end: (() => void) | null = null
-    let mousePress = false
-    let last: Point | null = null
-    let first: Point | null = null
-    let drawData: Point[] = []
-
-    if (options.lineType == 0) {
-        let nowControlPoint: Point | null = null
-        begin = (event: MouseEvent) => {
-            mousePress = true
-            first = getPos(event)
-            drawData.push(first)
-        }
-
-        move = (event: MouseEvent) => {
-            if (!mousePress) return
-            let xy = getPos(event)
-            //添加前过滤掉距离很近的点坐标
-            if (Math.sqrt(Math.pow(drawData[drawData.length - 1].x - xy.x, 2) + Math.pow(drawData[drawData.length - 1].y - xy.y, 2)) >= 5) {
-                drawData.push(xy)
-                if (drawData.length >= 3) {
-                    let controlList = drawData.slice(-2)
-                    let newControlPoint = {
-                        x: (controlList[0].x + controlList[1].x) / 2,
-                        y: (controlList[0].y + controlList[1].y) / 2
-                    }
-                    if (nowControlPoint) {
-                        drawCurveLine(temporaryCtx!, {
-                            x1: nowControlPoint.x,
-                            y1: nowControlPoint.y,
-                            x2: controlList[0].x,
-                            y2: controlList[0].y,
-                            x3: newControlPoint.x,
-                            y3: newControlPoint.y
-                        })
-                    } else {
-                        drawCurveLine(temporaryCtx!, {
-                            x1: drawData[0].x,
-                            y1: drawData[0].y,
-                            x2: drawData[1].x,
-                            y2: drawData[1].y,
-                            x3: newControlPoint.x,
-                            y3: newControlPoint.y
-                        })
-                    }
-                    nowControlPoint = newControlPoint
-                }
-            }
-        }
-
-        end = () => {
-            clearTemporaryCanvas()
-            drawCurveLineByPoints(ctx!, drawData)
-            //查找drawData最大区域的四个点坐标
-            const rectAreaData = getPointsAreaData(drawData)
-            if (!rectAreaData) return
-            addCanvasData(1, rectAreaData, {
-                drawType: 0,
-                isSelected: 1,
-                drawData,
-                ctxAttributes: {
-                    lineWidth: options.lineWidth,
-                    strokeStyle: options.color,
-                }
-            })
-            mousePress = false
-            nowControlPoint = null
-            last = null
-            first = null
-            drawData = []
-        }
-    } else if (options.lineType == 1) {
-
-        begin = (event: MouseEvent) => {
-            first = getPos(event)
-            mousePress = true
-        }
-
-        move = (event: MouseEvent) => {
-            if (!mousePress) return
-            let xy = getPos(event)
-            if (first) {
-                clearTemporaryCanvas()
-                drawLineArrow(temporaryCtx!, [first, xy])
-                last = xy
-            }
-        }
-        end = () => {
-            if (last && first) {
-                const startPoint: Point = first
-                clearTemporaryCanvas()
-                drawData = [startPoint, last]
-                drawLineArrow(ctx!, drawData)
-                const rectAreaData = getRectAreaData(startPoint.x, startPoint.y, last.x, last.y)
-                addCanvasData(1, rectAreaData, {
-                    drawType: 1,
-                    drawData,
-                    isSelected: 1,
-                    ctxAttributes: {
-                        lineWidth: options.lineWidth,
-                        strokeStyle: options.color
-                    }
-                })
-            }
-            mousePress = false
-            first = null
-            last = null
-            drawData = []
-        }
-    }
-
-    temporaryCanvas!.onmousedown = begin
-    temporaryCanvas!.onmousemove = move
-    temporaryCanvas!.onmouseup = end
+    createWriteTool(createToolContext(), options)
 }
 
 //绘制图形
 export function draw(options: { color: string; lineWidth: number; shapeType: number }): void {
-    overlayDom!.style.zIndex = "-1"
-    temporaryCanvas!.style.zIndex = "50"
-    clearSelect()
-    let shapeType = options.shapeType
-    ctx!.strokeStyle = options.color
-    ctx!.lineWidth = options.lineWidth
-    temporaryCtx!.strokeStyle = options.color
-    temporaryCtx!.lineWidth = options.lineWidth
-    let drawData: any = null
-    let mousePress = false
-    let last: Point | null = null
-    let first: Point | null = null
-
-    function begin(event: MouseEvent): void {
-        mousePress = true
-        first = getPos(event)
-    }
-
-    function move(event: MouseEvent): void {
-        if (!mousePress || !first) return
-        last = getPos(event)
-        clearTemporaryCanvas()
-        temporaryCtx!.beginPath()
-        if (shapeType == 0) {
-            drawData = {
-                x: first.x,
-                y: first.y,
-                w: last.x - first.x,
-                h: last.y - first.y
-            }
-            drawRect(temporaryCtx!, drawData)
-        } else if (shapeType == 1) {
-            drawData = {
-                x1: (first.x + last.x) / 2,
-                y1: first.y,
-                x2: first.x,
-                y2: last.y,
-                x3: last.x,
-                y3: last.y
-            }
-            drawTriangle(temporaryCtx!, drawData)
-        } else if (shapeType == 2) {
-            drawData = {
-                x: (first.x + last.x) / 2,
-                y: (first.y + last.y) / 2,
-                r: Math.abs(last.x - first.x) / 2
-            }
-            drawCircle(temporaryCtx!, drawData)
-        } else if (shapeType == 3) {
-            drawData = {
-                x1: (first.x + last.x) / 2,
-                y1: first.y,
-                x2: last.x,
-                y2: (first.y + last.y) / 2,
-                x3: (first.x + last.x) / 2,
-                y3: last.y,
-                x4: first.x,
-                y4: (first.y + last.y) / 2
-            }
-            drawDiamond(temporaryCtx!, drawData)
-        }
-        temporaryCtx!.closePath()
-    }
-
-    function end(event: MouseEvent): void {
-        mousePress = false
-        clearTemporaryCanvas()
-        //修正最小值
-        if (!first) return
-        if (!last) last = getPos(event)
-        if (Math.abs(last.x - first.x) <= 30 && Math.abs(last.y - first.y) <= 30) {
-            let nowPos = getPos(event)
-            first = {
-                x: nowPos.x - 15,
-                y: nowPos.y - 15
-            }
-            last = {
-                x: nowPos.x + 15,
-                y: nowPos.y + 15
-            }
-        }
-        if (shapeType == 0) {
-            let rectAreaData = getRectAreaData(first.x, first.y, last.x, last.y)
-            drawData = {
-                x: first.x,
-                y: first.y,
-                w: last.x - first.x,
-                h: last.y - first.y
-            }
-            drawRect(ctx!, drawData)
-            addCanvasData(1, rectAreaData, {
-                drawType: 2,
-                drawData,
-                isSelected: 1,
-                ctxAttributes: {
-                    lineWidth: options.lineWidth,
-                    strokeStyle: options.color,
-                }
-            })
-        } else if (shapeType == 1) {
-            let rectAreaData = getRectAreaData(first.x, first.y, last.x, last.y)
-            drawData = {
-                x1: (first.x + last.x) / 2,
-                y1: first.y,
-                x2: first.x,
-                y2: last.y,
-                x3: last.x,
-                y3: last.y
-            }
-            drawTriangle(ctx!, drawData)
-            addCanvasData(1, rectAreaData, {
-                drawType: 3,
-                isSelected: 1,
-                drawData,
-                ctxAttributes: {
-                    lineWidth: options.lineWidth,
-                    strokeStyle: options.color,
-                }
-            })
-        } else if (shapeType == 2) {
-            drawData = {
-                x: (first.x + last.x) / 2,
-                y: (first.y + last.y) / 2,
-                r: Math.abs(last.x - first.x) / 2
-            }
-            let rectAreaData = getRectAreaData(first.x, (first.y + last.y) / 2 - drawData.r, last.x, (first.y + last.y) / 2 + drawData.r)
-            drawCircle(ctx!, drawData)
-            addCanvasData(1, rectAreaData, {
-                drawType: 4,
-                drawData,
-                isSelected: 1,
-                ctxAttributes: {
-                    lineWidth: options.lineWidth,
-                    strokeStyle: options.color,
-                }
-            })
-        } else if (shapeType == 3) {
-            let rectAreaData = getRectAreaData(first.x, first.y, last.x, last.y)
-            drawData = {
-                x1: (first.x + last.x) / 2,
-                y1: first.y,
-                x2: last.x,
-                y2: (first.y + last.y) / 2,
-                x3: (first.x + last.x) / 2,
-                y3: last.y,
-                x4: first.x,
-                y4: (first.y + last.y) / 2
-            }
-            drawDiamond(ctx!, drawData)
-            addCanvasData(1, rectAreaData, {
-                drawType: 5,
-                drawData,
-                isSelected: 1,
-                ctxAttributes: {
-                    lineWidth: options.lineWidth,
-                    strokeStyle: options.color,
-                }
-            })
-        }
-        last = null
-        first = null
-        drawData = null
-    }
-
-    temporaryCanvas!.onmousedown = begin
-    temporaryCanvas!.onmousemove = move
-    temporaryCanvas!.onmouseup = end
+    createDrawTool(createToolContext(), options)
 }
 
 //绘制文本框
 export function text(options: { font: string; color: string; fontSize: number }): void {
-    temporaryCtx!.restore()
-    overlayDom!.style.zIndex = "-1"
-    temporaryCanvas!.style.zIndex = "50"
-    clearSelect()
-    clearTemporaryCanvas()
-    ctx!.font = options.font
-    ctx!.strokeStyle = options.color
-    ctx!.fillStyle = options.color
-    let mousePress = false
-    let last: Point | null = null
-    let first: Point | null = null
-    let rectAreaData: RectAreaData | null = null
+    createTextTool(createToolContext(), options)
+}
 
-    function begin(event: MouseEvent | TouchEvent): void {
-        mousePress = true
-        first = getPos(event)
+function createToolContext(): CanvasToolContext {
+    return {
+        ctx: ctx!,
+        temporaryCtx: temporaryCtx!,
+        overlay: overlayDom!,
+        temporaryCanvas: temporaryCanvas!,
+        container: containerDom!,
+        addOperation: (position, options) => addCanvasData(HistoryAction.add, position, options),
+        clearTemporaryCanvas,
+        clearSelection: clearSelect
     }
-
-    function end(): void {
-        //修正最小值
-        if (!first) return
-        let editBox = document.createElement("div")
-        editBox.contentEditable = "true"
-        editBox.className = "bupu-edit-box"
-        editBox.style.fontSize = options.fontSize + "px"
-        editBox.style.color = options.color
-        editBox.style.left = first.x + "px"
-        editBox.style.top = first.y + "px"
-        editBox.style.maxWidth = `calc(100% - ${first.x}px)`
-        editBox.style.maxHeight = `calc(100% - ${first.y}px)`
-        containerDom!.appendChild(editBox)
-        editBox.focus()
-        const textPoint: Point = first
-        editBox.onblur = () => {
-            clearTemporaryCanvas()
-            rectAreaData = getRectAreaData(textPoint.x, textPoint.y, textPoint.x + editBox.clientWidth, textPoint.y + editBox.clientHeight)
-            let text = editBox.innerText
-            if (text && text.length) {
-                addCanvasData(1, rectAreaData, {
-                    drawType: 6,
-                    text: editBox.innerText,
-                    isSelected: 1,
-                    style: {
-                        fontSize: options.fontSize,
-                        left: textPoint.x,
-                        top: textPoint.y,
-                        color: options.color
-                    }
-                })
-            }
-            editBox.style.border = "none"
-            editBox.style.padding = "4px"
-            editBox.contentEditable = "false"
-        }
-    }
-
-    function move(event: MouseEvent): void {
-        if (!mousePress || !first) return
-        last = getPos(event)
-    }
-
-    temporaryCanvas!.onmousedown = begin
-    temporaryCanvas!.onmousemove = move
-    temporaryCanvas!.onmouseup = end
 }
 
 //撤销

@@ -23,6 +23,7 @@
 
 ### 📦 工程与文档
 
+- 抽取共享 Canvas 工具工厂，统一白板/截图的画笔、图形、文本交互
 - 恢复并强制通过 TypeScript `strict: true`
 - 补充本地 `html2canvas` 模块声明，整理截图历史缩放与 DOM/Context 生命周期类型
 - 移除未使用的 `js-web-screen-shot` 和自引用 `z-board` 依赖

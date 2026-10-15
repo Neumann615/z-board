@@ -33,19 +33,23 @@ export function getPos(event: MouseEvent | TouchEvent): Point {
     let x = 0
     let y = 0
 
+    const currentTarget = event.currentTarget
+    if (!(currentTarget instanceof Element)) return { x: 0, y: 0 }
+    const bounds = currentTarget.getBoundingClientRect()
+
     if (isTouch) {
         const touchEvent = event as TouchEvent
-        const touch = (touchEvent.type.endsWith("end") || touchEvent.type.endsWith("cancel")
+        const touch = touchEvent.type.endsWith("end") || touchEvent.type.endsWith("cancel")
             ? touchEvent.changedTouches[0]
-            : touchEvent.touches[0])
+            : touchEvent.touches[0]
         if (touch) {
-            x = touch.pageX
-            y = touch.pageY
+            x = touch.clientX - bounds.left
+            y = touch.clientY - bounds.top
         }
     } else {
         const mouseEvent = event as MouseEvent
-        x = mouseEvent.offsetX
-        y = mouseEvent.offsetY
+        x = mouseEvent.clientX - bounds.left
+        y = mouseEvent.clientY - bounds.top
     }
 
     return { x, y }

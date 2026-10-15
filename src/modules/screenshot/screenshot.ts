@@ -13,42 +13,82 @@ import {
     preventDefaultEvents,
     screenShotDataSet
 } from "/src/utils/index"
+import { getEventClassName } from "/src/modules/common/selection"
+
+export interface ScreenShotArea {
+    x1: number
+    y1: number
+    x2: number
+    y2: number
+    x3: number
+    y3: number
+    x4: number
+    y4: number
+    w: number
+    h: number
+}
+
+export let screenShotPosition: ScreenShotArea | null = null
 
 let canvas: HTMLCanvasElement | null = null
-let ctx: CanvasRenderingContext2D | null = null
 let temporaryCanvas: HTMLCanvasElement | null = null
-let temporaryCtx: CanvasRenderingContext2D | null = null
-export let screenShotPosition: { x1: number; y1: number; x3: number; y3: number; w: number; h: number; x2: number; y2: number } | null = null
+let eventController: AbortController | null = null
 
-function requireScreenShotPosition(): NonNullable<typeof screenShotPosition> {
-    if (!screenShotPosition) throw new Error("Screenshot position has not been selected")
-    return screenShotPosition
-}
+type SelectionMode = "draw" | "move" | "stretch"
+type StretchDirection =
+    | "left"
+    | "right"
+    | "top"
+    | "bottom"
+    | "leftTop"
+    | "leftBottom"
+    | "rightTop"
+    | "rightBottom"
 
 export function resetScreenShotData(): void {
     canvas = null
-    ctx = null
     temporaryCanvas = null
-    temporaryCtx = null
     screenShotPosition = null
+    resetScreenShotSelection()
 }
 
-function drawSelect(x1: number, y1: number, x2: number, y2: number): void {
-    let rect = getRectAreaData(x1, y1, x2, y2)
-    screenShotSelectRangeDom!.style.left = rect.x1 + "px"
-    screenShotSelectRangeDom!.style.top = rect.y1 + "px"
-    screenShotSelectRangeDom!.style.width = Math.abs(rect.x1 - rect.x2) + "px"
-    screenShotSelectRangeDom!.style.height = Math.abs(rect.y1 - (rect as unknown as { y3: number }).y3) + "px"
-    screenShotCutDom!.style.left = -rect.x1 + "px"
-    screenShotCutDom!.style.top = -rect.y1 + "px"
+export function getScreenShotCanvasObject(
+    canvasElement: HTMLCanvasElement,
+    temporaryCanvasElement: HTMLCanvasElement
+): void {
+    canvas = canvasElement
+    temporaryCanvas = temporaryCanvasElement
 }
 
-export function clearSelect(): void {
-    screenShotSelectRangeDom!.style.left = -1000 + "px"
-    screenShotSelectRangeDom!.style.top = -1000 + "px"
+export function resetScreenShotSelection(): void {
+    eventController?.abort()
+    eventController = null
 }
 
-export function showBackground(): void {
+function drawSelection(
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number
+): void {
+    const area = getRectAreaData(x1, y1, x2, y2)
+    const selection = screenShotSelectRangeDom!
+    const cut = screenShotCutDom!
+
+    selection.style.left = `${area.x1}px`
+    selection.style.top = `${area.y1}px`
+    selection.style.width = `${Math.abs(area.x1 - area.x2)}px`
+    selection.style.height = `${Math.abs(area.y1 - area.y3)}px`
+    cut.style.left = `${-area.x1}px`
+    cut.style.top = `${-area.y1}px`
+}
+
+function clearSelection(): void {
+    screenShotSelectRangeDom!.style.left = "-1000px"
+    screenShotSelectRangeDom!.style.top = "-1000px"
+}
+
+function showBackground(): void {
     screenShotBackgroundDom!.style.opacity = "0.6"
 }
 
@@ -56,79 +96,52 @@ function hideBackground(): void {
     screenShotBackgroundDom!.style.opacity = "1"
 }
 
-function positionScreenShotToolbar(flag: boolean): void {
-    if (flag) {
-        screenShotToolbarDom!.style.visibility = "visible"
-        let { toolbarPosition } = screenShotDataSet
-        let { x1, y1, x3, y3 } = screenShotPosition!
-        let toolbarWidth = screenShotToolbarDom!.clientWidth
-        let toolbarHeight = screenShotToolbarDom!.clientHeight
-        let containerWidth = containerDom!.clientWidth
-        let containerHeight = containerDom!.clientHeight
-
-        if (toolbarPosition === "left") {
-            if (x1 - toolbarWidth >= 0) {
-                screenShotToolbarDom!.style.left = x1 - toolbarWidth - 5 + "px"
-            } else if (x3 + toolbarWidth <= containerWidth) {
-                screenShotToolbarDom!.style.left = x3 + 5 + "px"
-            } else {
-                screenShotToolbarDom!.style.left = x1 + 5 + "px"
-            }
-            if (y1 + toolbarHeight > containerHeight) {
-                screenShotToolbarDom!.style.top = containerHeight - toolbarHeight + "px"
-            } else {
-                screenShotToolbarDom!.style.top = y1 + "px"
-            }
-        } else if (toolbarPosition === "right") {
-            if (x3 + toolbarWidth <= containerWidth) {
-                screenShotToolbarDom!.style.left = x3 + 5 + "px"
-            } else if (x1 - toolbarWidth >= 0) {
-                screenShotToolbarDom!.style.left = x1 - toolbarWidth - 5 + "px"
-            } else {
-                screenShotToolbarDom!.style.left = x3 - toolbarWidth - 5 + "px"
-            }
-            if (y1 + toolbarHeight > containerHeight) {
-                screenShotToolbarDom!.style.top = containerHeight - toolbarHeight + "px"
-            } else {
-                screenShotToolbarDom!.style.top = y1 + "px"
-            }
-        } else if (toolbarPosition === "top") {
-            if (y1 >= toolbarHeight) {
-                screenShotToolbarDom!.style.top = y1 - toolbarHeight - 5 + "px"
-            } else if (y3 + toolbarHeight <= containerHeight) {
-                screenShotToolbarDom!.style.top = y3 + 5 + "px"
-            } else {
-                screenShotToolbarDom!.style.top = y1 + 5 + "px"
-            }
-            if (x3 - toolbarWidth < 0) {
-                screenShotToolbarDom!.style.left = 0 + "px"
-            } else {
-                screenShotToolbarDom!.style.left = x3 - toolbarWidth + "px"
-            }
-        } else if (toolbarPosition === "bottom") {
-            if (y3 + toolbarHeight <= containerHeight) {
-                screenShotToolbarDom!.style.top = y3 + 5 + "px"
-            } else if (y1 >= toolbarHeight) {
-                screenShotToolbarDom!.style.top = y1 - toolbarHeight - 5 + "px"
-            } else {
-                screenShotToolbarDom!.style.top = y3 - toolbarHeight - 5 + "px"
-            }
-            if (x3 - toolbarWidth < 0) {
-                screenShotToolbarDom!.style.left = 0 + "px"
-            } else {
-                screenShotToolbarDom!.style.left = x3 - toolbarWidth + "px"
-            }
-        }
-    } else {
-        screenShotToolbarDom!.style.visibility = "hidden"
+function positionToolbar(visible: boolean): void {
+    const toolbar = screenShotToolbarDom!
+    if (!visible) {
+        toolbar.style.visibility = "hidden"
+        return
     }
-}
 
-export function getScreenShotCanvasObject(canvas1: HTMLCanvasElement, temporaryCanvas1: HTMLCanvasElement): void {
-    canvas = canvas1
-    temporaryCanvas = temporaryCanvas1
-    ctx = canvas1.getContext("2d")
-    temporaryCtx = temporaryCanvas1.getContext("2d")
+    toolbar.style.visibility = "visible"
+    const area = screenShotPosition!
+    const { toolbarPosition } = screenShotDataSet
+    const toolbarWidth = toolbar.clientWidth
+    const toolbarHeight = toolbar.clientHeight
+    const container = containerDom!
+    const containerWidth = container.clientWidth
+    const containerHeight = container.clientHeight
+
+    if (toolbarPosition === "left" || toolbarPosition === "right") {
+        const preferredLeft = toolbarPosition === "left" ? area.x1 - toolbarWidth - 5 : area.x3 + 5
+        const fallbackLeft = toolbarPosition === "left" ? area.x3 + 5 : area.x1 - toolbarWidth - 5
+        const insideFallbackLeft = toolbarPosition === "left" ? area.x1 + 5 : area.x3 - toolbarWidth - 5
+
+        toolbar.style.left = `${preferredLeft >= 0 && preferredLeft + toolbarWidth <= containerWidth
+            ? preferredLeft
+            : fallbackLeft >= 0 && fallbackLeft + toolbarWidth <= containerWidth
+                ? fallbackLeft
+                : insideFallbackLeft
+        }px`
+
+        toolbar.style.top = `${area.y1 + toolbarHeight > containerHeight
+            ? containerHeight - toolbarHeight
+            : area.y1
+        }px`
+        return
+    }
+
+    const preferredTop = toolbarPosition === "top" ? area.y1 - toolbarHeight - 5 : area.y3 + 5
+    const fallbackTop = toolbarPosition === "top" ? area.y3 + 5 : area.y1 - toolbarHeight - 5
+    const insideFallbackTop = toolbarPosition === "top" ? area.y1 + 5 : area.y3 - toolbarHeight - 5
+    toolbar.style.top = `${preferredTop >= 0 && preferredTop + toolbarHeight <= containerHeight
+        ? preferredTop
+        : fallbackTop >= 0 && fallbackTop + toolbarHeight <= containerHeight
+            ? fallbackTop
+            : insideFallbackTop
+    }px`
+
+    toolbar.style.left = `${area.x3 - toolbarWidth < 0 ? 0 : area.x3 - toolbarWidth}px`
 }
 
 export function resetSelect(): void {
@@ -136,176 +149,223 @@ export function resetSelect(): void {
     temporaryCanvas!.style.zIndex = "-1"
     screenShotOverlayDom!.style.zIndex = "50"
     screenShotOverlayDom!.style.cursor = "crosshair"
-    positionScreenShotToolbar(false)
-    clearSelect()
+    positionToolbar(false)
+    clearSelection()
     hideBackground()
 }
 
+function applyStretch(
+    direction: StretchDirection,
+    point: { x: number; y: number }
+): void {
+    const area = screenShotPosition!
+    const { x1, y1, x3, y3 } = area
+
+    switch (direction) {
+        case "left":
+            drawSelection(point.x, y1, x3, y3)
+            area.x1 = point.x
+            area.x4 = point.x
+            break
+        case "right":
+            drawSelection(x1, y1, point.x, y3)
+            area.x2 = point.x
+            area.x3 = point.x
+            break
+        case "top":
+            drawSelection(x1, point.y, x3, y3)
+            area.y1 = point.y
+            area.y2 = point.y
+            break
+        case "bottom":
+            drawSelection(x1, y1, x3, point.y)
+            area.y3 = point.y
+            area.y4 = point.y
+            break
+        case "leftTop":
+            drawSelection(point.x, point.y, x3, y3)
+            area.x1 = point.x
+            area.y1 = point.y
+            area.y2 = point.y
+            area.x4 = point.x
+            break
+        case "leftBottom":
+            drawSelection(point.x, y1, x3, point.y)
+            area.x1 = point.x
+            area.y3 = point.y
+            area.x4 = point.x
+            area.y4 = point.y
+            break
+        case "rightTop":
+            drawSelection(x1, point.y, point.x, y3)
+            area.y1 = point.y
+            area.x2 = point.x
+            area.y2 = point.y
+            area.x3 = point.x
+            break
+        case "rightBottom":
+            drawSelection(x1, y1, point.x, point.y)
+            area.x2 = point.x
+            area.y3 = point.y
+            area.x3 = point.x
+            area.y4 = point.y
+            break
+    }
+}
+
 export function selectDrawRect(): void {
+    resetScreenShotSelection()
     temporaryCanvas!.style.zIndex = "-1"
     screenShotOverlayDom!.style.zIndex = "50"
     screenShotOverlayDom!.style.cursor = "crosshair"
-    positionScreenShotToolbar(false)
+    positionToolbar(false)
 
-    let mousePress = false
+    let pressed = false
     let first: { x: number; y: number } | null = null
     let last: { x: number; y: number } | null = null
-    let spaceX: number | null = null
-    let spaceY: number | null = null
-    let isStretch: string | boolean = false
-    let nowType: "draw" | "move" | "stretch" | null = null
+    let offsetX: number | null = null
+    let offsetY: number | null = null
+    let stretch: StretchDirection | false = false
+    let mode: SelectionMode | null = null
 
-    function begin(event: MouseEvent | TouchEvent): void {
-        if (event) {
-            positionScreenShotToolbar(false)
-            let xy = getPos(event)
+    const begin = (event: MouseEvent | TouchEvent): void => {
+            positionToolbar(false)
+        const point = getPos(event)
+        const className = getEventClassName(event)
+        const isSelectionHandle = className.includes("select-range-block") ||
+            className.includes("select-range-border")
 
-            if (screenShotPosition) {
-                if (isInRectArea(screenShotPosition.x1, screenShotPosition.y1, screenShotPosition.x3, screenShotPosition.y3, xy.x, xy.y) &&
-                    !((event.srcElement as HTMLElement).className.indexOf("select-range-block") !== -1 ||
-                      (event.srcElement as HTMLElement).className.indexOf("select-range-border") !== -1)) {
-                    nowType = "move"
-                    isStretch = false
-                } else if ((event.srcElement as HTMLElement).className.indexOf("select-range-block") !== -1 ||
-                           (event.srcElement as HTMLElement).className.indexOf("select-range-border") !== -1) {
-                    nowType = "stretch"
-                    isStretch = (event.srcElement as HTMLElement).className.split("__")[1]
-                } else {
-                    nowType = "draw"
-                    screenShotPosition = null
-                    clearSelect()
-                    showBackground()
-                }
+        if (screenShotPosition) {
+            const area = screenShotPosition
+            const insideArea = isInRectArea(
+                area.x1,
+                area.y1,
+                area.x3,
+                area.y3,
+                point.x,
+                point.y
+            )
+
+            if (isSelectionHandle) {
+                mode = "stretch"
+                stretch = className.split("__")[1] as StretchDirection
+            } else if (insideArea) {
+                mode = "move"
+                stretch = false
             } else {
-                nowType = "draw"
+                mode = "draw"
                 screenShotPosition = null
-                clearSelect()
+                clearSelection()
                 showBackground()
             }
-
-            mousePress = true
-            first = xy
-
-            setTimeout(() => {
-                screenShotOverlayDom!.onmousemove = move
-            }, 0)
+        } else {
+            mode = "draw"
+            screenShotPosition = null
+            clearSelection()
+            showBackground()
         }
+
+        pressed = true
+        first = point
         preventDefaultEvents(event)
     }
 
-    function move(event: MouseEvent | TouchEvent): void {
-        if (mousePress && first) {
-            positionScreenShotToolbar(false)
+    const move = (event: MouseEvent | TouchEvent): void => {
+            if (!pressed || !first) return
+        positionToolbar(false)
+        const point = getPos(event)
 
-            if (nowType === "draw") {
-                if ((event.srcElement as HTMLElement).className === "bupu-overlay") {
-                    last = getPos(event)
-                    if (Math.abs((first.x - last.x) * (first.y - last.y)) > 600) {
-                        drawSelect(first.x, first.y, last.x, last.y)
-                    }
-                }
-            } else if (nowType === "move") {
-                let { x1, y1, x3, y3 } = screenShotPosition!
-                last = getPos(event)
-                spaceX = last.x - first.x
-                spaceY = last.y - first.y
-
-                if (x1 + spaceX - 5 <= 0) {
-                    spaceX = 5 - x1
-                }
-                if (y1 + spaceY - 5 <= 0) {
-                    spaceY = 5 - y1
-                }
-                if (x3 + spaceX + 5 >= containerDom!.clientWidth) {
-                    spaceX = containerDom!.clientWidth - x3 - 5
-                }
-                if (y3 + spaceY + 5 >= containerDom!.clientHeight) {
-                    spaceY = containerDom!.clientHeight - y3 - 5
-                }
-
-                drawSelect(x1 + spaceX, y1 + spaceY, x3 + spaceX, y3 + spaceY)
-            } else if (nowType === "stretch") {
-                if ((event.srcElement as HTMLElement).className.indexOf("select-range-block") === -1 &&
-                    (event.srcElement as HTMLElement).className.indexOf("select-range-border") === -1) {
-                    const position = requireScreenShotPosition()
-                    let { x1, y1, x3, y3 } = position
-                    last = getPos(event)
-
-                    switch (isStretch) {
-                        case "left":
-                            drawSelect(last.x, y1, x3, y3)
-                            position.x1 = last.x
-                            break
-                        case "right":
-                            drawSelect(x1, y1, last.x, y3)
-                            position.x3 = last.x
-                            break
-                        case "top":
-                            drawSelect(x1, last.y, x3, y3)
-                            position.y1 = last.y
-                            break
-                        case "bottom":
-                            drawSelect(x1, y1, x3, last.y)
-                            position.y3 = last.y
-                            break
-                        case "leftTop":
-                            drawSelect(last.x, last.y, x3, y3)
-                            position.x1 = last.x
-                            position.y1 = last.y
-                            break
-                        case "leftBottom":
-                            drawSelect(last.x, y1, x3, last.y)
-                            position.x1 = last.x
-                            position.y3 = last.y
-                            break
-                        case "rightTop":
-                            drawSelect(x1, last.y, last.x, y3)
-                            position.y1 = last.y
-                            position.x3 = last.x
-                            break
-                        case "rightBottom":
-                            drawSelect(x1, y1, last.x, last.y)
-                            position.x3 = last.x
-                            position.y3 = last.y
-                            break
-                    }
-                }
-            }
-        }
-    }
-
-    function end(): void {
-        mousePress = false
-
-        if (!last || Math.abs((first!.x - last.x) * (first!.y - last.y)) < 600) {
-            if (first && !screenShotPosition) {
-                hideBackground()
-                positionScreenShotToolbar(false)
+        if (mode == "draw") {
+            const className = getEventClassName(event)
+            if (className != "bupu-overlay") return
+            last = point
+            if (Math.abs((first.x - point.x) * (first.y - point.y)) > 600) {
+                drawSelection(first.x, first.y, point.x, point.y)
             }
             return
         }
 
-        if (nowType == "draw") {
-            screenShotPosition = getRectAreaData(first!.x, first!.y, last.x, last.y)
-        } else if (nowType == "move") {
-            let { x1, y1, x3, y3 } = screenShotPosition!
-            screenShotPosition = getRectAreaData(x1 + (spaceX || 0), y1 + (spaceY || 0), x3 + (spaceX || 0), y3 + (spaceY || 0))
-        } else if (nowType == "stretch") {
-            let { x1, y1, x3, y3 } = screenShotPosition!
-            screenShotPosition = getRectAreaData(x1, y1, x3, y3)
+        if (!screenShotPosition) return
+        last = point
+
+        if (mode == "move") {
+            const area = screenShotPosition
+            offsetX = point.x - first.x
+            offsetY = point.y - first.y
+            const container = containerDom!
+
+            if (area.x1 + offsetX - 5 <= 0) offsetX = 5 - area.x1
+            if (area.y1 + offsetY - 5 <= 0) offsetY = 5 - area.y1
+            if (area.x3 + offsetX + 5 >= container.clientWidth) {
+                offsetX = container.clientWidth - area.x3 - 5
+            }
+            if (area.y3 + offsetY + 5 >= container.clientHeight) {
+                offsetY = container.clientHeight - area.y3 - 5
+            }
+
+            drawSelection(
+                area.x1 + offsetX,
+                area.y1 + offsetY,
+                area.x3 + offsetX,
+                area.y3 + offsetY
+            )
+            return
         }
 
-        positionScreenShotToolbar(true)
-        screenShotOverlayDom!.onmousemove = null
-        last = null
-        first = null
-        spaceX = null
-        spaceY = null
-        nowType = null
-        isStretch = false
+        if (mode == "stretch" && stretch) applyStretch(stretch, point)
     }
 
-    screenShotOverlayDom!.onmousedown = begin
-    screenShotOverlayDom!.onmouseup = end
-    window.onmouseup = end
+    const end = (): void => {
+            pressed = false
+        if (!last || !first || !mode) {
+            first = null
+            last = null
+            mode = null
+            return
+        }
+
+        if (mode == "draw") {
+            const area = Math.abs((first.x - last.x) * (first.y - last.y))
+            if (area < 600) {
+                screenShotPosition = null
+                hideBackground()
+                positionToolbar(false)
+            } else {
+                screenShotPosition = getRectAreaData(first.x, first.y, last.x, last.y)
+                positionToolbar(true)
+            }
+        } else if (mode == "move") {
+            const area = screenShotPosition!
+            screenShotPosition = getRectAreaData(
+                area.x1 + (offsetX || 0),
+                area.y1 + (offsetY || 0),
+                area.x3 + (offsetX || 0),
+                area.y3 + (offsetY || 0)
+            )
+            positionToolbar(true)
+        } else if (mode == "stretch") {
+            const area = screenShotPosition!
+            screenShotPosition = getRectAreaData(area.x1, area.y1, area.x3, area.y3)
+            positionToolbar(true)
+        }
+
+        last = null
+        first = null
+        offsetX = null
+        offsetY = null
+        mode = null
+        stretch = false
+    }
+
+    eventController = new AbortController()
+    const signal = eventController.signal
+    const overlay = screenShotOverlayDom!
+    overlay.addEventListener("mousedown", begin, { signal })
+    overlay.addEventListener("mousemove", move, { signal })
+    overlay.addEventListener("mouseup", end, { signal })
+    overlay.addEventListener("touchstart", begin, { signal })
+    overlay.addEventListener("touchmove", move, { signal })
+    overlay.addEventListener("touchend", end, { signal })
+    window.addEventListener("mouseup", end, { signal })
+    window.addEventListener("touchend", end, { signal })
 }

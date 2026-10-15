@@ -1,30 +1,9 @@
-import {
-    canvasResolution,
-    containerDom,
-    moveToolbarDom,
-    overlayDom,
-    selectRangeDom
-} from "./core"
-import {
-    updatePaginationText
-} from "./render"
-import {
-    drawCircle,
-    drawCurveLine,
-    drawCurveLineByPoints,
-    drawDiamond,
-    drawLineArrow,
-    drawRect,
-    drawTriangle,
-    getPointsAreaData,
-    getPos,
-    getRectAreaData,
-    isInRectArea,
-    screenShotDataSet
-} from "/src/utils/index"
+import { canvasResolution, containerDom, overlayDom } from "./core"
+import { screenShotDataSet } from "/src/utils/index"
 import {
     appendHistoryOperation,
     createHistoryPages,
+    HistoryAction,
     resolveHistoryContent
 } from "/src/modules/common/history"
 import { renderHistoryOperation } from "/src/modules/common/renderOperation"
@@ -36,32 +15,21 @@ import {
     createWriteTool,
     type CanvasToolContext
 } from "/src/modules/common/canvasTools"
-import { HistoryAction } from "/src/modules/common/history"
-import {
-    clearEditableText,
-    clearSelectionFrame,
-    getEventClassName,
-    updateSelectionFrame
-} from "/src/modules/common/selection"
+import { clearEditableText, clearSelectionFrame } from "/src/modules/common/selection"
 
 import html2canvas from "../../html2canvas.esm"
 import type {
     CanvasOperationItem as CanvasDataItem,
     CanvasOperationOptions as CanvasOptions,
     CanvasPage as CanvasHistoryItem,
-    Point,
     RectAreaData
 } from "../../types"
 
-export let canvasHistory: CanvasHistoryItem[] = createHistoryPages(3)
-let nowPageIndex = 0
-let allPageNumber = 3
+export let canvasHistory: CanvasHistoryItem[] = createHistoryPages(1)
 let canvas: HTMLCanvasElement | null = null
 let ctx: CanvasRenderingContext2D | null = null
 let temporaryCanvas: HTMLCanvasElement | null = null
 let temporaryCtx: CanvasRenderingContext2D | null = null
-let nowSelectIndex = -1
-
 //图片缓存集合
 let imageCacheSet = new Map<string, HTMLImageElement>()
 
@@ -74,38 +42,26 @@ export function updateImageCacheSet(imageUrl: string, imageElement: HTMLImageEle
 //添加canvas操作历史
 //actionType
 //1添加 0移动 -1删除 2置顶 -2置底 3拉伸
-export function addCanvasData(actionType: number, position: RectAreaData, options: CanvasOptions, pageIndex?: number): void {
+export function addCanvasData(actionType: number, position: RectAreaData, options: CanvasOptions): void {
     if (!position) return
-    appendHistoryOperation(canvasHistory[pageIndex ? pageIndex : nowPageIndex], {
+    appendHistoryOperation(canvasHistory[0], {
         actionType,
         position,
         options,
-        index: canvasHistory[pageIndex ? pageIndex : nowPageIndex].canvasData.length,
+        index: canvasHistory[0].canvasData.length,
         canvasResolution: JSON.parse(JSON.stringify(canvasResolution))
-    })
-}
-
-//绘制选中框
-function drawSelect(x1: number, y1: number, x2: number, y2: number, selectIndex?: number): void {
-    if (selectIndex !== undefined) {
-        nowSelectIndex = selectIndex
-    }
-    updateSelectionFrame({
-        moveToolbar: moveToolbarDom!,
-        selectRange: selectRangeDom!
-    }, x1, y1, x2, y2)
-}
-
-function clearSelect(): void {
-    nowSelectIndex = -1
-    clearSelectionFrame({
-        moveToolbar: moveToolbarDom!,
-        selectRange: selectRangeDom!
     })
 }
 
 function clearTextDom(): void {
     clearEditableText()
+}
+
+function clearAnnotationSelection(): void {
+    clearSelectionFrame({
+        moveToolbar: document.createElement("div"),
+        selectRange: document.createElement("div")
+    })
 }
 
 export function clearCanvas(): void {
@@ -127,8 +83,6 @@ export function getCanvasObject(canvas1: HTMLCanvasElement, temporaryCanvas1: HT
     temporaryCanvas = temporaryCanvas1
     ctx = canvas1.getContext("2d")
     temporaryCtx = temporaryCanvas1.getContext("2d")
-    //初始化默认分页
-    updatePaginationText(nowPageIndex + 1 + "/" + allPageNumber)
 }
 
 //历史记录的canvas纪录列表需要同步处理  结合当前canvas屏幕分辨率进行同步
@@ -176,61 +130,55 @@ function createToolContext(): CanvasToolContext {
         container: containerDom!,
         addOperation: (position, options) => addCanvasData(HistoryAction.add, position, options),
         clearTemporaryCanvas,
-        clearSelection: clearSelect
+        clearSelection: clearAnnotationSelection
     }
 }
 
-//撤销
-export function undo(setStep?: number): void {
-    let flag = setStep ? setStep : 0
-    if (canvasHistory[nowPageIndex].step >= flag) {
-        clearSelect()
-        clearCanvas()
-        clearTextDom()
-        canvasHistory[nowPageIndex].step -= 1
-        setTimeout(() => {
-            restoreArtBoardState(getCanvasDataContent(canvasHistory[nowPageIndex].canvasData.slice(0, canvasHistory[nowPageIndex].step + 1)))
-        }, 0)
-    } else {
-        // message({
-        //     type: "warn",
-        //     text: "无法撤销",
-        //     zIndex: 999
-        // })
-    }
+//撤销。截图历史中的第 0 步是底图，不允许撤掉。
+export async function undo(minimumStep = 1): Promise<void> {
+    const page = canvasHistory[0]
+    const minimum = Math.max(0, minimumStep)
+    if (page.step < minimum) return
+
+    clearCanvas()
+    clearTextDom()
+    page.step -= 1
+    await restoreArtBoardState(getCanvasDataContent(page.canvasData, page.step))
 }
 
 //画板分辨率变化时重新绘制
 export function redrawByResolution(): void {
     if (canvasHistory.length && ctx) {
-        clearSelect()
-        clearCanvas()
-        restoreArtBoardState(getCanvasDataContent(canvasHistory[nowPageIndex].canvasData))
+        void restoreArtBoardState(getCanvasDataContent(canvasHistory[0].canvasData))
+    }
+}
+
+async function exportScreenEdit(): Promise<string | null> {
+    const target = document.getElementsByClassName("bupu-screen-edit")[0]
+    if (!(target instanceof HTMLElement)) return null
+    try {
+        return await exportHTMLElementAsPng(target, html2canvas)
+    } catch (error) {
+        console.error("z-board screenshot export failed:", error)
+        return null
     }
 }
 
 //导出画板内容
-export function save(): void {
-    const target = document.getElementsByClassName("bupu-screen-edit")[0]
-    if (!(target instanceof HTMLElement)) return
-    exportHTMLElementAsPng(target, html2canvas).then(dataUrl => {
-        if (dataUrl) downloadDataUrl(dataUrl, `z-board-${Date.now()}.png`)
-    })
+export async function save(): Promise<void> {
+    const dataUrl = await exportScreenEdit()
+    if (dataUrl) downloadDataUrl(dataUrl, `z-board-${Date.now()}.png`)
 }
 
 //成功的回调
-export function success(): void {
+export async function success(): Promise<void> {
     const successHandler = screenShotDataSet.successHandler
-    if (successHandler) {
-        const target = document.getElementsByClassName("bupu-screen-edit")[0]
-        if (!(target instanceof HTMLElement)) return
-        exportHTMLElementAsPng(target, html2canvas).then(dataUrl => {
-            if (dataUrl) successHandler(dataUrl)
-        })
-    }
+    if (!successHandler) return
+    const dataUrl = await exportScreenEdit()
+    if (dataUrl) successHandler(dataUrl)
 }
 
 //重置
 export function resetToolbarData(): void {
-    canvasHistory = createHistoryPages(3)
+    canvasHistory = createHistoryPages(1)
 }

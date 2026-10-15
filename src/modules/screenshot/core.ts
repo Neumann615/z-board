@@ -93,6 +93,7 @@ let drawOptions: DrawOptions
 let textOptions: TextOptions
 let stage: ScreenshotStage = "select"
 let currentImageUrl = ""
+let editStagePromise: Promise<boolean> | null = null
 let eventController: AbortController | null = null
 let resizeController: AbortController | null = null
 let resolutionResizeController: AbortController | null = null
@@ -191,16 +192,16 @@ function handleToolbarClick(event: MouseEvent): void {
 
     switch (action) {
         case "toolbar-save":
-            save()
+            void save()
             break
         case "toolbar-undo":
-            undo(1)
+            void undo(1)
             break
         case "toolbar-exit":
             screenShotDataSet.exitHandler?.()
             break
         case "toolbar-success":
-            success()
+            void success()
             break
     }
 }
@@ -309,9 +310,10 @@ function observeCanvasResolution(dom: HTMLElement): void {
     }, { signal: resolutionResizeController.signal })
 }
 
-/** 框选完成后，把截图区域切换为可编辑画布。 */
+/** 框选完成后，把截图区域切换为可编辑画布。并发调用复用同一次裁剪流程。 */
 function enterEditStage(): Promise<boolean> {
     if (stage == "edit") return Promise.resolve(true)
+    if (editStagePromise) return editStagePromise
 
     const position = screenShotPosition
     const source = screenShotCutDom?.src
@@ -320,7 +322,25 @@ function enterEditStage(): Promise<boolean> {
         return Promise.reject(new Error("Screenshot area has not been selected"))
     }
 
+    const transition = createEditStageTransition(position, source, targetCanvas)
+    editStagePromise = transition
+    void transition
+        .finally(() => {
+            if (stage != "edit") editStagePromise = null
+        })
+        .catch(() => {
+            // 返回给调用方的 promise 已处理错误；这里只避免 finally 链产生额外 unhandled rejection。
+        })
+    return transition
+}
+
+function createEditStageTransition(
+    position: NonNullable<typeof screenShotPosition>,
+    source: string,
+    targetCanvas: HTMLCanvasElement
+): Promise<boolean> {
     const { x1, y1, w, h } = position
+
     return new Promise<boolean>((resolve, reject) => {
         const context = targetCanvas.getContext("2d")!
         const image = new Image()
@@ -501,6 +521,7 @@ export function unmountScreenShot(): void {
     resolutionResizeController?.abort()
     resolutionResizeController = null
     resetScreenShotSelection()
+    editStagePromise = null
 
     if (mountDom) {
         mountDom.innerHTML = ""

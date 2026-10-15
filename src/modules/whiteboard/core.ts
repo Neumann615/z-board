@@ -271,8 +271,8 @@ function observerCanvasResolution(dom: HTMLElement): void {
     })
 }
 
-function updateCanvasResolution(w: number, h: number): void {
-    if (w != canvasResolution.w || h != canvasResolution.h) {
+function updateCanvasResolution(w: number, h: number, forceRedraw = false): void {
+    if (forceRedraw || w != canvasResolution.w || h != canvasResolution.h) {
         const dpr = window.devicePixelRatio || 1
         const physicalW = Math.max(1, Math.round(w * dpr))
         const physicalH = Math.max(1, Math.round(h * dpr))
@@ -339,6 +339,7 @@ export function initWhiteBoard(dom: HTMLElement, options?: WhiteBoardOptions): W
     eventBinding()
     getCanvasObject(canvasDom!, temporaryCanvasDom!)
     observerCanvasResolution(containerDom!)
+    updateCanvasResolution(containerDom!.clientWidth, containerDom!.clientHeight, true)
 
     temporaryCanvasDom!.style.cursor = `url(${pencilIco}),default`
     canvasDom!.style.cursor = `url(${pencilIco}),default`

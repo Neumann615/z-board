@@ -66,8 +66,14 @@ function scaleHistoryDrawData(
     if (drawType == 2) {
         drawData.x = Math.floor(drawData.x * widthScale)
         drawData.y = Math.floor(drawData.y * heightScale)
-        drawData.w = Math.floor(drawData.w * widthScale)
-        drawData.h = Math.floor(drawData.h * heightScale)
+        if (item.actionType != HistoryAction.add) {
+            // move/stretch entry: drawData is the authoritative post-transform geometry.
+            if (typeof drawData.w == "number") drawData.w = Math.floor(drawData.w)
+            if (typeof drawData.h == "number") drawData.h = Math.floor(drawData.h)
+        } else {
+            drawData.w = Math.floor(drawData.w * widthScale)
+            drawData.h = Math.floor(drawData.h * heightScale)
+        }
         return
     }
 

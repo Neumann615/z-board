@@ -121,6 +121,7 @@ export function createWriteTool(context: CanvasToolContext, options: WriteOption
 
 export function createDrawTool(context: CanvasToolContext, options: DrawOptions): void {
     activateTool(context, options)
+    context.clearTemporaryCanvas()
     const shapeType = options.shapeType
 
     let drawData: any = null
@@ -189,13 +190,14 @@ export function createDrawTool(context: CanvasToolContext, options: DrawOptions)
     }
 
     const end = (event: PointerEvent): void => {
+        if (!pressed) return
         pressed = false
         context.clearTemporaryCanvas()
         if (!first) return
-        if (!last) last = getPos(event)
+        if (!last) last = getPos(event as MouseEvent)
 
         if (Math.abs(last.x - first.x) <= 30 && Math.abs(last.y - first.y) <= 30) {
-            const position = getPos(event)
+            const position = getPos(event as MouseEvent)
             first = { x: position.x - 15, y: position.y - 15 }
             last = { x: position.x + 15, y: position.y + 15 }
         }

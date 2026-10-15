@@ -4,6 +4,33 @@
 
 ---
 
+## [Unreleased]
+
+### ✨ 新特性
+
+- `initWhiteBoard` / `initScreenShot` 返回 `{ unmount() }` 实例
+- 新增根级 Vite Demo，`npm run dev` 不再打开空白 404 页面
+- Canvas 按设备像素比渲染，降低高分屏线条模糊
+- 截图图片加载失败时提供消息提示并触发 `exitHandler`
+
+### 🐛 问题修复
+
+- 白板方向键快捷键不再劫持文本输入框 / contentEditable
+- 卸载白板时移除全局键盘和 resize 监听
+- 修复 `touchend` 坐标读取，避免移动端点击图形时读取空 `touches`
+- “打开文件”按钮重新挂到白板工具栏
+- 导出 PNG 文件名补充 `.png` 后缀
+
+### 📦 工程与文档
+
+- 恢复并强制通过 TypeScript `strict: true`
+- 补充本地 `html2canvas` 模块声明，整理截图历史缩放与 DOM/Context 生命周期类型
+- 移除未使用的 `js-web-screen-shot` 和自引用 `z-board` 依赖
+- `typescript` 调整到 `devDependencies`
+- 新增 `typecheck`、LICENSE；同步 README 和 API 文档
+
+---
+
 ## [0.0.94] - 2026-06-27
 
 ### ✨ 新特性

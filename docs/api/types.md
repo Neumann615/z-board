@@ -156,9 +156,9 @@ interface TextOptions {
 interface WhiteBoardDataSet {
   /** 调色板颜色列表 */
   colorList: string[]
-  addCanvasHistoryHandler: ((data: unknown) => void) | null
-  uploadFileHandler: ((file: File) => void) | null
-  uploadImageHandler: ((file: File) => void) | null
+  addCanvasHistoryHandler: ((data: CanvasHistorySnapshot) => void) | null
+  uploadFileHandler: ((file: File) => Promise<string[]>) | null
+  uploadImageHandler: ((file: File) => Promise<string>) | null
 }
 ```
 
@@ -170,7 +170,7 @@ interface ScreenShotDataSet {
   colorList: string[]
   /** 目标图片 URL */
   imageUrl: string
-  successHandler: ((data: unknown) => void) | null
+  successHandler: ((data: string) => void) | null
   exitHandler: (() => void) | null
   /** 工具栏位置 */
   toolbarPosition: 'top' | 'bottom' | 'left' | 'right'

@@ -1,4 +1,4 @@
-// 工具类型
+// 基础几何类型
 export interface Point {
   x: number
   y: number
@@ -11,42 +11,88 @@ export interface RectArea {
   height: number
 }
 
-// 画布数据类型
-export interface CanvasDataItem {
-  drawType: number
-  text?: string
-  isSelected: number
-  style: {
-    fontSize?: number
-    left: number
-    top: number
-    color?: string
-    lineWidth?: number
-    lineType?: number
-    shapeType?: number
-    url?: string
-    width?: number
-    height?: number
-  }
+export interface RectAreaData {
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+  x3: number
+  y3: number
+  x4: number
+  y4: number
+  area: number
+  w: number
+  h: number
 }
 
-export interface CanvasHistoryItem {
+// 画布操作数据。canvasData 中的每一项表示一次用户操作。
+export interface CanvasContextAttributes {
+  lineWidth: number
+  strokeStyle: string
+  fillStyle?: string
+}
+
+export interface CanvasOperationOptions {
+  drawType?: number
+  isSelected?: number
+  drawData?: any
+  ctxAttributes?: CanvasContextAttributes
+  text?: string
+  style?: {
+    fontSize: number
+    left: number
+    top: number
+    color: string
+  }
+  deleteIndex?: number
+  moveIndex?: number
+  stretchIndex?: number
+  topIndex?: number
+  bottomIndex?: number
+}
+
+export interface CanvasOperationItem {
+  actionType: number
+  position: RectAreaData
+  options: CanvasOperationOptions
+  index: number
+  canvasResolution: { w: number; h: number }
+}
+
+/** 兼容旧导入名；新代码请使用 CanvasOperationItem。 */
+export type CanvasHistoryItem = CanvasOperationItem
+
+export interface CanvasPage {
+  canvasData: CanvasOperationItem[]
   step: number
-  canvasData: CanvasDataItem[]
+}
+
+export interface CanvasHistorySnapshot {
+  canvasHistory: CanvasPage[]
+  nowPageIndex: number
+  allPageNumber: number
 }
 
 // 配置类型
 export interface WhiteBoardOptions {
-  addCanvasHistoryHandler?: (data: unknown) => void
-  uploadFileHandler?: (file: File) => void
-  uploadImageHandler?: (file: File) => void
+  addCanvasHistoryHandler?: (data: CanvasHistorySnapshot) => void
+  uploadFileHandler?: (file: File) => Promise<string[]>
+  uploadImageHandler?: (file: File) => Promise<string>
+}
+
+export interface WhiteBoardInstance {
+  unmount: () => void
 }
 
 export interface ScreenShotOptions {
   imageUrl: string
-  successHandler?: (data: unknown) => void
+  successHandler?: (data: string) => void
   exitHandler?: () => void
   toolbarPosition?: 'top' | 'bottom' | 'left' | 'right'
+}
+
+export interface ScreenShotInstance {
+  unmount: () => void
 }
 
 export interface TextOptions {
@@ -70,15 +116,15 @@ export interface DrawOptions {
 // 数据集类型
 export interface WhiteBoardDataSet {
   colorList: string[]
-  addCanvasHistoryHandler: ((data: unknown) => void) | null
-  uploadFileHandler: ((file: File) => void) | null
-  uploadImageHandler: ((file: File) => void) | null
+  addCanvasHistoryHandler: ((data: CanvasHistorySnapshot) => void) | null
+  uploadFileHandler: ((file: File) => Promise<string[]>) | null
+  uploadImageHandler: ((file: File) => Promise<string>) | null
 }
 
 export interface ScreenShotDataSet {
   colorList: string[]
   imageUrl: string
-  successHandler: ((data: unknown) => void) | null
+  successHandler: ((data: string) => void) | null
   exitHandler: (() => void) | null
   toolbarPosition: 'top' | 'bottom' | 'left' | 'right'
 }

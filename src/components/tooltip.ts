@@ -29,7 +29,7 @@ export function tooltip(dom: HTMLElement, params: TooltipParams): void {
         if (!flag) return
         isTooltip = flag
         document.body.appendChild(tooltipDom)
-        arrowDom.style = null
+        arrowDom.style.cssText = ""
 
         if (nowModule === "whiteboard") {
             tooltipDom.style.left = rect.x + rect.width + 20 + "px"

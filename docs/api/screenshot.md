@@ -8,7 +8,7 @@
 function initScreenShot(
   container: HTMLElement,
   options: ScreenShotOptions
-): void
+): ScreenShotInstance
 ```
 
 ## 参数
@@ -88,8 +88,7 @@ import { initScreenShot } from 'z-board'
 import 'z-board/style.css'
 
 const container = document.getElementById('app')
-
-initScreenShot(container, {
+const screenshot = initScreenShot(container, {
   imageUrl: 'your-image.png',
   toolbarPosition: 'bottom',
   successHandler: (base64) => {
@@ -109,8 +108,10 @@ initScreenShot(container, {
 ## 卸载
 
 ```typescript
-import { unmountScreenShot } from 'z-board'
+screenshot.unmount()
 
+// 或使用全局卸载
+import { unmountScreenShot } from 'z-board'
 unmountScreenShot()
 ```
 

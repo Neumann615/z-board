@@ -16,3 +16,17 @@ export {
 export {
     updateCanvasHistory
 } from "./modules/whiteboard/toolbar"
+export type {
+    CanvasHistoryItem,
+    CanvasHistorySnapshot,
+    CanvasOperationItem,
+    CanvasOperationOptions,
+    CanvasPage,
+    Point,
+    RectArea,
+    RectAreaData,
+    ScreenShotInstance,
+    ScreenShotOptions,
+    WhiteBoardInstance,
+    WhiteBoardOptions
+} from "./types"

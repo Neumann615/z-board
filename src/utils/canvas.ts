@@ -111,19 +111,20 @@ export function drawCurveLineByPoints(ctx: CanvasRenderingContext2D, drawData: P
 }
 
 export async function asyncDrawImage(ctx: CanvasRenderingContext2D, drawData: ImageDrawData): Promise<HTMLImageElement> {
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
         let { x, y, w, h, imageUrl } = drawData
         let image = new Image()
         image.crossOrigin = "*"
-        image.src = imageUrl
         image.onload = () => {
             ctx.drawImage(image, x, y, w, h)
             resolve(image)
         }
+        image.onerror = () => reject(new Error(`Image load failed: ${imageUrl}`))
+        image.src = imageUrl
     })
 }
 
-export function drawDiamond(ctx: CanvasRenderingContext2D, drawData: DiamondData, isFill: boolean): void {
+export function drawDiamond(ctx: CanvasRenderingContext2D, drawData: DiamondData, isFill?: boolean): void {
     ctx.beginPath()
     let { x1, y1, x2, y2, x3, y3, x4, y4 } = drawData
     ctx.moveTo(x1, y1)
@@ -134,20 +135,20 @@ export function drawDiamond(ctx: CanvasRenderingContext2D, drawData: DiamondData
     isFill ? ctx.fill() : ctx.stroke()
 }
 
-export function drawRect(ctx: CanvasRenderingContext2D, drawData: RectData, isFill: boolean): void {
+export function drawRect(ctx: CanvasRenderingContext2D, drawData: RectData, isFill?: boolean): void {
     ctx.beginPath()
     isFill ? ctx.fillRect(drawData.x, drawData.y, drawData.w, drawData.h) : ctx.strokeRect(drawData.x, drawData.y, drawData.w, drawData.h)
     ctx.closePath()
 }
 
-export function drawCircle(ctx: CanvasRenderingContext2D, drawData: CircleData, isFill: boolean): void {
+export function drawCircle(ctx: CanvasRenderingContext2D, drawData: CircleData, isFill?: boolean): void {
     ctx.beginPath()
     ctx.arc(drawData.x, drawData.y, drawData.r, 0, Math.PI * 2, true)
     isFill ? ctx.fill() : ctx.stroke()
     ctx.closePath()
 }
 
-export function drawTriangle(ctx: CanvasRenderingContext2D, drawData: TriangleData, isFill: boolean): void {
+export function drawTriangle(ctx: CanvasRenderingContext2D, drawData: TriangleData, isFill?: boolean): void {
     ctx.beginPath()
     let { x1, y1, x2, y2, x3, y3 } = drawData
     ctx.moveTo(x1, y1)

@@ -20,6 +20,11 @@ let temporaryCanvas: HTMLCanvasElement | null = null
 let temporaryCtx: CanvasRenderingContext2D | null = null
 export let screenShotPosition: { x1: number; y1: number; x3: number; y3: number; w: number; h: number; x2: number; y2: number } | null = null
 
+function requireScreenShotPosition(): NonNullable<typeof screenShotPosition> {
+    if (!screenShotPosition) throw new Error("Screenshot position has not been selected")
+    return screenShotPosition
+}
+
 export function resetScreenShotData(): void {
     canvas = null
     ctx = null
@@ -222,45 +227,46 @@ export function selectDrawRect(): void {
             } else if (nowType === "stretch") {
                 if ((event.srcElement as HTMLElement).className.indexOf("select-range-block") === -1 &&
                     (event.srcElement as HTMLElement).className.indexOf("select-range-border") === -1) {
-                    let { x1, y1, x3, y3 } = screenShotPosition!
+                    const position = requireScreenShotPosition()
+                    let { x1, y1, x3, y3 } = position
                     last = getPos(event)
 
                     switch (isStretch) {
                         case "left":
                             drawSelect(last.x, y1, x3, y3)
-                            screenShotPosition.x1 = last.x
+                            position.x1 = last.x
                             break
                         case "right":
                             drawSelect(x1, y1, last.x, y3)
-                            screenShotPosition.x3 = last.x
+                            position.x3 = last.x
                             break
                         case "top":
                             drawSelect(x1, last.y, x3, y3)
-                            screenShotPosition.y1 = last.y
+                            position.y1 = last.y
                             break
                         case "bottom":
                             drawSelect(x1, y1, x3, last.y)
-                            screenShotPosition.y3 = last.y
+                            position.y3 = last.y
                             break
                         case "leftTop":
                             drawSelect(last.x, last.y, x3, y3)
-                            screenShotPosition.x1 = last.x
-                            screenShotPosition.y1 = last.y
+                            position.x1 = last.x
+                            position.y1 = last.y
                             break
                         case "leftBottom":
                             drawSelect(last.x, y1, x3, last.y)
-                            screenShotPosition.x1 = last.x
-                            screenShotPosition.y3 = last.y
+                            position.x1 = last.x
+                            position.y3 = last.y
                             break
                         case "rightTop":
                             drawSelect(x1, last.y, last.x, y3)
-                            screenShotPosition.y1 = last.y
-                            screenShotPosition.x3 = last.x
+                            position.y1 = last.y
+                            position.x3 = last.x
                             break
                         case "rightBottom":
                             drawSelect(x1, y1, last.x, last.y)
-                            screenShotPosition.x3 = last.x
-                            screenShotPosition.y3 = last.y
+                            position.x3 = last.x
+                            position.y3 = last.y
                             break
                     }
                 }

@@ -1,4 +1,4 @@
-import type { WriteOptions, DrawOptions, TextOptions, WhiteBoardOptions } from '../../types'
+import type { DrawOptions, TextOptions, WhiteBoardInstance, WhiteBoardOptions, WriteOptions } from '../../types'
 
 import {
     renderAddPage,
@@ -86,6 +86,7 @@ export let overlayDom: HTMLDivElement | null = null
 export let selectRangeDom: HTMLDivElement | null = null
 export let moveToolbarDom: HTMLDivElement | null = null
 export let canvasResolution: { w: number; h: number } = { w: 0, h: 0 }
+let resizeEventController: AbortController | null = null
 
 let writeOptions: WriteOptions
 let drawOptions: DrawOptions
@@ -140,7 +141,7 @@ function eventBinding(): void {
         e.stopPropagation()
         e.preventDefault()
         clearTemporaryCanvas()
-        switch (e.target?.id) {
+        switch ((e.target as HTMLElement | null)?.id) {
             case 'toolbar-image': {
                 const fileInput1 = document.createElement("input")
                 fileInput1.type = "file"
@@ -166,25 +167,25 @@ function eventBinding(): void {
             case "toolbar-pointer":
                 canvasDom!.style.cursor = "initial"
                 temporaryCanvasDom!.style.cursor = "initial"
-                changeIsSelected(toolbarEventDom.filter(Boolean) as HTMLCollectionOf<Element>, pointerDom!)
+                changeIsSelected(toolbarEventDom.filter(Boolean) as HTMLDivElement[], pointerDom!)
                 pointer()
                 break
             case "toolbar-write":
                 temporaryCanvasDom!.style.cursor = `url(${pencilIco}),default`
                 canvasDom!.style.cursor = `url(${pencilIco}),default`
-                changeIsSelected(toolbarEventDom.filter(Boolean) as HTMLCollectionOf<Element>, writeDom!)
+                changeIsSelected(toolbarEventDom.filter(Boolean) as HTMLDivElement[], writeDom!)
                 write(writeOptions)
                 writeEventBinding()
                 break
             case "toolbar-draw":
                 temporaryCanvasDom!.style.cursor = `url(${plusIco}),default`
-                changeIsSelected(toolbarEventDom.filter(Boolean) as HTMLCollectionOf<Element>, drawDom!)
+                changeIsSelected(toolbarEventDom.filter(Boolean) as HTMLDivElement[], drawDom!)
                 draw(drawOptions)
                 drawEventBinding()
                 break
             case "toolbar-text":
                 temporaryCanvasDom!.style.cursor = `url(${iIco}),default`
-                changeIsSelected(toolbarEventDom.filter(Boolean) as HTMLCollectionOf<Element>, textDom!)
+                changeIsSelected(toolbarEventDom.filter(Boolean) as HTMLDivElement[], textDom!)
                 text(textOptions)
                 textEventBinding()
                 break
@@ -196,7 +197,7 @@ function eventBinding(): void {
                 break
             case "toolbar-eraser":
                 canvasDom!.style.cursor = `url(${eraserIco}),default`
-                changeIsSelected(toolbarEventDom.filter(Boolean) as HTMLCollectionOf<Element>, eraserDom!)
+                changeIsSelected(toolbarEventDom.filter(Boolean) as HTMLDivElement[], eraserDom!)
                 eraser()
                 break
             case "toolbar-open-file": {
@@ -236,7 +237,7 @@ function eventBinding(): void {
     moveToolbarDom?.addEventListener("click", (e: MouseEvent) => {
         e.stopPropagation()
         e.preventDefault()
-        switch (e.target?.id) {
+        switch ((e.target as HTMLElement | null)?.id) {
             case "move-toolbar-top":
                 setTop()
                 break
@@ -260,26 +261,44 @@ function textEventBinding(): void {
 }
 
 function observerCanvasResolution(dom: HTMLElement): void {
+    resizeEventController?.abort()
+    resizeEventController = new AbortController()
     updateCanvasResolution(dom.clientWidth, dom.clientHeight)
     window.addEventListener("resize", () => {
-        pointerDom?.click()
         updateCanvasResolution(dom.clientWidth, dom.clientHeight)
+    }, {
+        signal: resizeEventController.signal
     })
 }
 
 function updateCanvasResolution(w: number, h: number): void {
     if (w != canvasResolution.w || h != canvasResolution.h) {
-        canvasDom!.width = w
-        temporaryCanvasDom!.width = w
-        canvasDom!.height = h
-        temporaryCanvasDom!.height = h
+        const dpr = window.devicePixelRatio || 1
+        const physicalW = Math.max(1, Math.round(w * dpr))
+        const physicalH = Math.max(1, Math.round(h * dpr))
+
+        canvasDom!.width = physicalW
+        temporaryCanvasDom!.width = physicalW
+        canvasDom!.height = physicalH
+        temporaryCanvasDom!.height = physicalH
+        canvasDom!.style.width = `${w}px`
+        canvasDom!.style.height = `${h}px`
+        temporaryCanvasDom!.style.width = `${w}px`
+        temporaryCanvasDom!.style.height = `${h}px`
+
         canvasResolution.w = w
         canvasResolution.h = h
+
+        for (const context of [canvasDom!.getContext("2d"), temporaryCanvasDom!.getContext("2d")]) {
+            context?.setTransform(1, 0, 0, 1, 0, 0)
+            context?.scale(dpr, dpr)
+        }
+
         redrawByResolution()
     }
 }
 
-export function initWhiteBoard(dom: HTMLElement, options?: WhiteBoardOptions): void {
+export function initWhiteBoard(dom: HTMLElement, options?: WhiteBoardOptions): WhiteBoardInstance {
     mountDom = dom
     unmountWhiteBoard()
     initDomData()
@@ -305,7 +324,7 @@ export function initWhiteBoard(dom: HTMLElement, options?: WhiteBoardOptions): v
 
     const toolbarContent3 = document.createElement("div")
     toolbarContent3.className = "bupu-toolbar-content"
-    domAppendChild(toolbarContent3, [addPageDom!, deletePageDom!, resetDom!, saveDom!])
+    domAppendChild(toolbarContent3, [addPageDom!, deletePageDom!, resetDom!, saveDom!, openFileDom!])
 
     domAppendChild(toolbarContainerChild1, [toolbarContent1, toolbarContent2, toolbarContent3])
     domAppendChild(toolbarContainer, [toolbarContainerChild1, paginationDom!])
@@ -321,12 +340,14 @@ export function initWhiteBoard(dom: HTMLElement, options?: WhiteBoardOptions): v
     getCanvasObject(canvasDom!, temporaryCanvasDom!)
     observerCanvasResolution(containerDom!)
 
-    setTimeout(() => {
-        temporaryCanvasDom!.style.cursor = `url(${pencilIco}),default`
-        canvasDom!.style.cursor = `url(${pencilIco}),default`
-        changeIsSelected([pointerDom!, writeDom!, drawDom!, textDom!, eraserDom!], writeDom!)
-        write(writeOptions)
-    }, 500)
+    temporaryCanvasDom!.style.cursor = `url(${pencilIco}),default`
+    canvasDom!.style.cursor = `url(${pencilIco}),default`
+    changeIsSelected([pointerDom!, writeDom!, drawDom!, textDom!, eraserDom!], writeDom!)
+    write(writeOptions)
+
+    return {
+        unmount: unmountWhiteBoard
+    }
 }
 
 export function unmountWhiteBoard(): void {
@@ -334,6 +355,8 @@ export function unmountWhiteBoard(): void {
         mountDom.innerHTML = ""
         resetToolbarData()
         resetEventBindings()
+        resizeEventController?.abort()
+        resizeEventController = null
         const tooltipList = document.getElementsByClassName("bupu-tooltip")
         const popoverList = document.getElementsByClassName("bupu-popover")
         for (let i = tooltipList.length - 1; i >= 0; i--) {

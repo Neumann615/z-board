@@ -1,4 +1,5 @@
-import type { WriteOptions, DrawOptions, TextOptions, ScreenShotOptions } from '../../types'
+import message from "msg-alert"
+import type { DrawOptions, ScreenShotInstance, ScreenShotOptions, TextOptions, WriteOptions } from '../../types'
 
 import {
     changeIsSelected,
@@ -67,6 +68,7 @@ let exitDom: HTMLDivElement | null = null
 let successDom: HTMLDivElement | null = null
 let mountDom: HTMLElement | null = null
 let imageResizeHandler: (() => void) | null = null
+let resolutionResizeController: AbortController | null = null
 let originalContainerW = 0
 let originalContainerH = 0
 
@@ -133,23 +135,23 @@ function eventBinding(): void {
             e.stopPropagation()
             e.preventDefault()
             clearTemporaryCanvas()
-            switch (e.target?.id) {
+            switch ((e.target as HTMLElement | null)?.id) {
                 case "toolbar-write":
                     temporaryCanvasDom!.style.cursor = `url(${pencilIco}),default`
                     canvasDom!.style.cursor = `url(${pencilIco}),default`
-                    changeIsSelected(toolbarEventDom.filter(Boolean) as HTMLCollectionOf<Element>, writeDom!)
+                    changeIsSelected(toolbarEventDom.filter(Boolean) as HTMLDivElement[], writeDom!)
                     write(writeOptions)
                     writeEventBinding()
                     break
                 case "toolbar-draw":
                     temporaryCanvasDom!.style.cursor = `url(${plusIco}),default`
-                    changeIsSelected(toolbarEventDom.filter(Boolean) as HTMLCollectionOf<Element>, drawDom!)
+                    changeIsSelected(toolbarEventDom.filter(Boolean) as HTMLDivElement[], drawDom!)
                     draw(drawOptions)
                     drawEventBinding()
                     break
                 case "toolbar-text":
                     temporaryCanvasDom!.style.cursor = `url(${iIco}),default`
-                    changeIsSelected(toolbarEventDom.filter(Boolean) as HTMLCollectionOf<Element>, textDom!)
+                    changeIsSelected(toolbarEventDom.filter(Boolean) as HTMLDivElement[], textDom!)
                     text(textOptions)
                     textEventBinding()
                     break
@@ -185,20 +187,39 @@ function textEventBinding(): void {
 }
 
 function observerCanvasResolution(dom: HTMLElement): void {
+    resolutionResizeController?.abort()
+    resolutionResizeController = new AbortController()
     updateCanvasResolution(dom.clientWidth, dom.clientHeight)
     window.addEventListener("resize", () => {
         updateCanvasResolution(dom.clientWidth, dom.clientHeight)
+    }, {
+        signal: resolutionResizeController.signal
     })
 }
 
 function updateCanvasResolution(w: number, h: number): void {
     if (w != canvasResolution.w || h != canvasResolution.h) {
-        canvasDom!.width = w
-        temporaryCanvasDom!.width = w
-        canvasDom!.height = h
-        temporaryCanvasDom!.height = h
+        const dpr = window.devicePixelRatio || 1
+        const physicalW = Math.max(1, Math.round(w * dpr))
+        const physicalH = Math.max(1, Math.round(h * dpr))
+
+        canvasDom!.width = physicalW
+        temporaryCanvasDom!.width = physicalW
+        canvasDom!.height = physicalH
+        temporaryCanvasDom!.height = physicalH
+        canvasDom!.style.width = `${w}px`
+        canvasDom!.style.height = `${h}px`
+        temporaryCanvasDom!.style.width = `${w}px`
+        temporaryCanvasDom!.style.height = `${h}px`
+
         canvasResolution.w = w
         canvasResolution.h = h
+
+        for (const context of [canvasDom!.getContext("2d"), temporaryCanvasDom!.getContext("2d")]) {
+            context?.setTransform(1, 0, 0, 1, 0, 0)
+            context?.scale(dpr, dpr)
+        }
+
         redrawByResolution()
     }
 }
@@ -252,21 +273,24 @@ function scaleImageToFit(imageUrl: string, containerW: number, containerH: numbe
         const img = new Image()
         img.crossOrigin = 'anonymous'
         img.onload = () => {
+            const dpr = window.devicePixelRatio || 1
             const c = document.createElement('canvas')
-            c.width = containerW; c.height = containerH
+            c.width = Math.max(1, Math.round(containerW * dpr))
+            c.height = Math.max(1, Math.round(containerH * dpr))
             const ctx = c.getContext('2d')!
+            ctx.scale(dpr, dpr)
             const scale = Math.max(containerW / img.naturalWidth, containerH / img.naturalHeight)
             const dw = img.naturalWidth * scale
             const dh = img.naturalHeight * scale
             ctx.drawImage(img, (containerW - dw) / 2, (containerH - dh) / 2, dw, dh)
             resolve(c.toDataURL('image/jpeg', 0.92))
         }
-        img.onerror = reject
+        img.onerror = () => reject(new Error(`Image load failed: ${imageUrl}`))
         img.src = imageUrl
     })
 }
 
-export function initScreenShot(dom: HTMLElement, options: ScreenShotOptions): void {
+export function initScreenShot(dom: HTMLElement, options: ScreenShotOptions): ScreenShotInstance {
     mountDom = dom
     initDomData()
     unmountScreenShot()
@@ -323,6 +347,14 @@ export function initScreenShot(dom: HTMLElement, options: ScreenShotOptions): vo
         screenShotBackgroundDom!.src = scaledUrl
         screenShotCutDom!.src = scaledUrl
         screenShotDataSet.imageUrl = scaledUrl
+    }).catch((error) => {
+        console.error("z-board screenshot image failed:", error)
+        message({
+            type: "error",
+            text: "截图图片加载失败，请检查地址或跨域配置",
+            zIndex: 999
+        })
+        screenShotDataSet.exitHandler?.()
     })
 
     getScreenShotCanvasObject(canvasDom!, temporaryCanvasDom!)
@@ -362,6 +394,10 @@ export function initScreenShot(dom: HTMLElement, options: ScreenShotOptions): vo
     })
 
     selectDrawRect()
+
+    return {
+        unmount: unmountScreenShot
+    }
 }
 
 export function unmountScreenShot(): void {
@@ -382,6 +418,8 @@ export function unmountScreenShot(): void {
         }
         resetToolbarData()
         resetScreenShotData()
+        resolutionResizeController?.abort()
+        resolutionResizeController = null
 
         initScreenShotBackground = function (): Promise<boolean> {
             return new Promise((resolve) => {

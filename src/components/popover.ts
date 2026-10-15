@@ -21,7 +21,7 @@ export function popover(dom: HTMLElement, params: PopoverParams): void {
     dom.addEventListener("click", (e: MouseEvent) => {
         let rect = dom.getBoundingClientRect()
         document.body.appendChild(popoverDom)
-        arrowDom.style = null
+        arrowDom.style.cssText = ""
 
         if (nowModule === "whiteboard") {
             popoverDom.style.left = rect.x + rect.width + 20 + "px"
@@ -59,12 +59,14 @@ export function popover(dom: HTMLElement, params: PopoverParams): void {
 document.body.addEventListener("mousedown", (e: MouseEvent) => {
     if (isPopover) {
         let isRemove = true
-        e.composedPath()?.forEach((item: Element) => {
-            item.classList && item.classList.length && item.classList.forEach((className: string) => {
-                if (className == "bupu-popover") {
-                    isRemove = false
-                }
-            })
+        e.composedPath()?.forEach((item: EventTarget) => {
+            if (item instanceof Element) {
+                item.classList.forEach((className: string) => {
+                    if (className == "bupu-popover") {
+                        isRemove = false
+                    }
+                })
+            }
         })
         if (isRemove) {
             let popoverList = document.getElementsByClassName("bupu-popover")
@@ -79,12 +81,14 @@ document.body.addEventListener("mousedown", (e: MouseEvent) => {
 document.body.addEventListener("touchstart", (e: TouchEvent) => {
     if (isPopover) {
         let isRemove = true
-        e.composedPath()?.forEach((item: Element) => {
-            item.classList && item.classList.length && item.classList.forEach((className: string) => {
-                if (className == "bupu-popover") {
-                    isRemove = false
-                }
-            })
+        e.composedPath()?.forEach((item: EventTarget) => {
+            if (item instanceof Element) {
+                item.classList.forEach((className: string) => {
+                    if (className == "bupu-popover") {
+                        isRemove = false
+                    }
+                })
+            }
         })
         if (isRemove) {
             let popoverList = document.getElementsByClassName("bupu-popover")

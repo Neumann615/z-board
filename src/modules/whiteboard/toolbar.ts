@@ -1,5 +1,15 @@
 import message from "msg-alert"
 import html2canvas from "../../html2canvas.esm"
+import type {
+    CanvasHistoryItem,
+    CanvasOperationOptions as CanvasOptions,
+    CanvasPage,
+    DrawOptions,
+    RectAreaData,
+    TextOptions,
+    WhiteBoardOptions,
+    WriteOptions
+} from '../../types'
 import {
     canvasResolution,
     containerDom,
@@ -11,10 +21,9 @@ import {
     updatePaginationText
 } from "./render"
 import {
-    asyncDrawImage,
-    drawCircle,
     drawCurveLine,
     drawCurveLineByPoints,
+    drawCircle,
     drawDiamond,
     drawLineArrow,
     drawRect,
@@ -25,90 +34,23 @@ import {
     getRectAreaData,
     isInRectArea,
     isMobile,
-    setObjAttributes,
     whiteBoardDataSet
 } from "/src/utils/index"
+import {
+    appendHistoryOperation,
+    createHistoryPages,
+    getHistoryPageData,
+    HistoryAction,
+    resolveHistoryContent
+} from "/src/modules/common/history"
+import { renderHistoryOperation } from "/src/modules/common/renderOperation"
 
-export interface CanvasHistoryItem {
-    actionType: number
-    position: RectAreaData
-    options: CanvasOptions
-    index: number
-    canvasResolution: { w: number; h: number }
+function getTargetClassName(event: MouseEvent | TouchEvent): string {
+    const target = event.target as HTMLElement | null
+    return target?.className ?? ""
 }
 
-export interface CanvasPage {
-    canvasData: CanvasHistoryItem[]
-    step: number
-}
-
-export interface RectAreaData {
-    x1: number
-    y1: number
-    x2: number
-    y2: number
-    x3: number
-    y3: number
-    x4: number
-    y4: number
-    w: number
-    h: number
-}
-
-export interface CanvasOptions {
-    drawType: number
-    isSelected?: number
-    drawData?: any
-    ctxAttributes?: {
-        lineWidth: number
-        strokeStyle: string
-        fillStyle?: string
-    }
-    text?: string
-    style?: {
-        fontSize: number
-        left: number
-        top: number
-        color: string
-    }
-    deleteIndex?: number
-    moveIndex?: number
-    stretchIndex?: number
-    topIndex?: number
-    bottomIndex?: number
-}
-
-export interface WriteOptions {
-    lineWidth: number
-    color: string
-    lineType: number
-}
-
-export interface DrawOptions {
-    color: string
-    lineWidth: number
-    shapeType: number
-}
-
-export interface TextOptions {
-    font: string
-    fontSize: number
-    color: string
-}
-
-export let canvasHistory: CanvasPage[] = [{
-        canvasData: [],
-        step: -1
-    },
-    {
-        canvasData: [],
-        step: -1
-    },
-    {
-        canvasData: [],
-        step: -1
-    }
-]
+export let canvasHistory: CanvasPage[] = createHistoryPages(3)
 let nowPageIndex = 0
 let allPageNumber = 3
 let canvas: HTMLCanvasElement | null = null
@@ -118,19 +60,8 @@ let temporaryCtx: CanvasRenderingContext2D | null = null
 let nowSelectIndex = -1
 
 export function resetToolbarData(): void {
-    canvasHistory = [{
-            canvasData: [],
-            step: -1
-        },
-        {
-            canvasData: [],
-            step: -1
-        },
-        {
-            canvasData: [],
-            step: -1
-        }
-    ]
+    unbindKeyboardEvents()
+    canvasHistory = createHistoryPages(3)
     nowPageIndex = 0
     allPageNumber = 3
     nowSelectIndex = -1
@@ -139,32 +70,60 @@ export function resetToolbarData(): void {
 //图片缓存集合
 let imageCacheSet = new Map<string, HTMLImageElement>()
 
-//全局监听事件
-window.onkeydown = (event: KeyboardEvent): void => {
+//全局键盘事件只随白板实例挂载/卸载
+let keyboardEventController: AbortController | null = null
+
+function isEditableTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) return false
+    return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)
+}
+
+function handleKeyboardEvent(event: KeyboardEvent): void {
+    if (event.ctrlKey || event.metaKey || event.altKey || isEditableTarget(event.target)) return
+
     //清除选中框的元素
-    if (nowSelectIndex != -1 && event.keyCode == 8) {
+    if (nowSelectIndex != -1 && event.key == "Backspace") {
+        event.preventDefault()
         addCanvasData(-1, {} as RectAreaData, {
             deleteIndex: nowSelectIndex
         })
         restoreArtBoardState(getCanvasDataContent(canvasHistory[nowPageIndex].canvasData))
         clearSelect()
+        return
     }
     //撤销
-    if (event.keyCode == 37) {
+    if (event.key == "ArrowLeft") {
+        event.preventDefault()
         undo()
     }
     //翻到上一页
-    if (event.keyCode == 38) {
+    else if (event.key == "ArrowUp") {
+        event.preventDefault()
         changeNowPageIndex(-1)
     }
     //反撤销
-    if (event.keyCode == 39) {
+    else if (event.key == "ArrowRight") {
+        event.preventDefault()
         redo()
     }
     //翻到下一页
-    if (event.keyCode == 40) {
+    else if (event.key == "ArrowDown") {
+        event.preventDefault()
         changeNowPageIndex(1)
     }
+}
+
+function bindKeyboardEvents(): void {
+    if (keyboardEventController) return
+    keyboardEventController = new AbortController()
+    window.addEventListener("keydown", handleKeyboardEvent, {
+        signal: keyboardEventController.signal
+    })
+}
+
+function unbindKeyboardEvents(): void {
+    keyboardEventController?.abort()
+    keyboardEventController = null
 }
 
 //更新图片缓存集合
@@ -178,18 +137,13 @@ export function updateImageCacheSet(imageUrl: string, imageElement: HTMLImageEle
 //1添加 0移动 -1删除 2置顶 -2置底 3拉伸
 export function addCanvasData(actionType: number, position: RectAreaData, options: CanvasOptions, pageIndex?: number): void {
     if (!position) return
-    canvasHistory[nowPageIndex].step++
-    if (canvasHistory[nowPageIndex].step < canvasHistory[nowPageIndex].canvasData.length) {
-        canvasHistory[nowPageIndex].canvasData.length = canvasHistory[nowPageIndex].step
-    }
-    let addData: CanvasHistoryItem = {
+    appendHistoryOperation(canvasHistory[pageIndex ? pageIndex : nowPageIndex], {
         actionType,
         position,
         options,
-        index: canvasHistory[nowPageIndex].canvasData.length,
+        index: canvasHistory[pageIndex ? pageIndex : nowPageIndex].canvasData.length,
         canvasResolution: JSON.parse(JSON.stringify(canvasResolution))
-    }
-    canvasHistory[pageIndex ? pageIndex : nowPageIndex].canvasData.push(addData)
+    })
     whiteBoardDataSet.addCanvasHistoryHandler && whiteBoardDataSet.addCanvasHistoryHandler({
         canvasHistory,
         nowPageIndex,
@@ -203,21 +157,21 @@ function drawSelect(x1: number, y1: number, x2: number, y2: number, selectIndex?
         nowSelectIndex = selectIndex
     }
     let rect = getRectAreaData(x1, y1, x2, y2)
-    moveToolbarDom.style.left = rect.x2 + 20 + "px"
-    moveToolbarDom.style.top = rect.y2 - 10 + "px"
-    selectRangeDom.style.left = rect.x1 + "px"
-    selectRangeDom.style.top = rect.y1 + "px"
-    selectRangeDom.style.width = Math.abs(rect.x1 - rect.x2) + "px"
-    selectRangeDom.style.height = Math.abs(rect.y1 - rect.y3) + "px"
+    moveToolbarDom!.style.left = rect.x2 + 20 + "px"
+    moveToolbarDom!.style.top = rect.y2 - 10 + "px"
+    selectRangeDom!.style.left = rect.x1 + "px"
+    selectRangeDom!.style.top = rect.y1 + "px"
+    selectRangeDom!.style.width = Math.abs(rect.x1 - rect.x2) + "px"
+    selectRangeDom!.style.height = Math.abs(rect.y1 - rect.y3) + "px"
 }
 
 //清除选中状态
 function clearSelect(): void {
     nowSelectIndex = -1
-    moveToolbarDom.style.left = -1000 + "px"
-    moveToolbarDom.style.top = -1000 + "px"
-    selectRangeDom.style.left = -1000 + "px"
-    selectRangeDom.style.top = -1000 + "px"
+    moveToolbarDom!.style.left = -1000 + "px"
+    moveToolbarDom!.style.top = -1000 + "px"
+    selectRangeDom!.style.left = -1000 + "px"
+    selectRangeDom!.style.top = -1000 + "px"
 }
 
 //清除文本dom元素
@@ -251,6 +205,7 @@ export function getCanvasObject(canvas1: HTMLCanvasElement, temporaryCanvas1: HT
     temporaryCanvas = temporaryCanvas1
     ctx = canvas1.getContext("2d")
     temporaryCtx = temporaryCanvas1.getContext("2d")
+    bindKeyboardEvents()
     //初始化默认分页
     updatePaginationText(nowPageIndex + 1 + "/" + allPageNumber)
 }
@@ -277,197 +232,23 @@ export function redrawByResolution(): void {
 
 //历史记录的canvas纪录列表需要同步处理  结合当前canvas屏幕分辨率进行同步
 export function getCanvasDataContent(canvasData: CanvasHistoryItem[], step?: number): CanvasHistoryItem[] {
-    if (!canvasData.length) return []
-    if (step && canvasData.length - 1 != step) {
-        canvasData = canvasData.slice(0, step + 1)
-    }
-    let _canvasData = JSON.parse(JSON.stringify(canvasData)) as CanvasHistoryItem[]
-    let list: CanvasHistoryItem[] = []
-    //获取处理后的渲染元数据
-    canvasData.forEach((item, index) => {
-        //先考虑删除的问题
-        let {
-            actionType,
-            options,
-            position,
-            canvasResolution
-        } = item
-        //删除
-        if (actionType == -1) {
-            _canvasData[options.deleteIndex!] = -1 as any
-            _canvasData[index] = -1 as any
-        }
-        //移动
-        else if (actionType == 0) {
-            //赋值操作不要影响原本的canvasHistory
-            _canvasData[options.moveIndex!].position = JSON.parse(JSON.stringify(position))
-            _canvasData[options.moveIndex!].canvasResolution = JSON.parse(JSON.stringify(canvasResolution))
-            if (options.drawData) {
-                _canvasData[options.moveIndex!].options.drawData = JSON.parse(JSON.stringify(options.drawData))
-            }
-            _canvasData[index] = -1 as any
-        }
-        //拉伸
-        else if (actionType == 3) {
-            _canvasData[options.stretchIndex!].position = JSON.parse(JSON.stringify(position))
-            _canvasData[options.stretchIndex!].canvasResolution = JSON.parse(JSON.stringify(canvasResolution))
-            if (options.drawData) {
-                _canvasData[options.stretchIndex!].options.drawData = JSON.parse(JSON.stringify(options.drawData))
-            }
-            _canvasData[index] = -1 as any
-        }
-    })
-    let __canvasData = JSON.parse(JSON.stringify(_canvasData)) as (CanvasHistoryItem | number)[]
-    //将置顶置地列表单独提出来
-    _canvasData.forEach((item, index) => {
-        if (item != -1) {
-            if (item.actionType == -2) {
-                let updateIndex = __canvasData.findIndex((item1: CanvasHistoryItem | number) => item1 !== -1 && (item1 as CanvasHistoryItem).index === item.options.topIndex)
-                if (updateIndex !== -1) {
-                    let setTopData = __canvasData.splice(updateIndex, 1)[0]
-                    __canvasData.push(setTopData)
-                }
-            }
-            if (item.actionType == -3) {
-                let updateIndex = __canvasData.findIndex((item1: CanvasHistoryItem | number) => item1 !== -1 && (item1 as CanvasHistoryItem).index === item.options.bottomIndex)
-                if (updateIndex !== -1) {
-                    let setBottomData = __canvasData.splice(updateIndex, 1)[0]
-                    __canvasData.unshift(setBottomData)
-                }
-            }
-        }
-    })
-    __canvasData.forEach(item => {
-        if (item != -1 && (item as CanvasHistoryItem).actionType == 1) {
-            let wPercent = canvasResolution.w / (item as CanvasHistoryItem).canvasResolution.w
-            let hPercent = canvasResolution.h / (item as CanvasHistoryItem).canvasResolution.h;
-            //根据当前分辨率对比数据的分辨率进行缩放
-            (item as CanvasHistoryItem).position = getRectAreaData(
-                (item as CanvasHistoryItem).position.x1 * wPercent,
-                (item as CanvasHistoryItem).position.y1 * hPercent,
-                (item as CanvasHistoryItem).position.x3 * wPercent,
-                (item as CanvasHistoryItem).position.y3 * hPercent
-            )
-            //同步选中区域
-            //同步drawData
-            let {
-                drawData,
-                drawType
-            } = (item as CanvasHistoryItem).options
-            //线条
-            if (drawType == 0 || drawType == 1) {
-                drawData.forEach((point: { x: number; y: number }) => {
-                    point.x = Math.floor(point.x * wPercent)
-                    point.y = Math.floor(point.y * hPercent)
-                })
-            }
-            //矩形
-            else if (drawType == 2) {
-                drawData.x = Math.floor(drawData.x * wPercent)
-                drawData.y = Math.floor(drawData.y * hPercent)
-                drawData.w = Math.floor(drawData.w * wPercent)
-                drawData.h = Math.floor(drawData.h * hPercent)
-            }
-            //三角形
-            else if (drawType == 3) {
-                drawData.x1 = Math.floor(drawData.x1 * wPercent)
-                drawData.y1 = Math.floor(drawData.y1 * hPercent)
-                drawData.x2 = Math.floor(drawData.x2 * wPercent)
-                drawData.y2 = Math.floor(drawData.y2 * hPercent)
-                drawData.x3 = Math.floor(drawData.x3 * wPercent)
-                drawData.y3 = Math.floor(drawData.y3 * hPercent)
-            }
-            //圆形
-            else if (drawType == 4) {
-                //更新点的坐标后重新计算
-                let x1 = Math.floor((item as CanvasHistoryItem).position.x1 * wPercent)
-                let y1 = Math.floor((item as CanvasHistoryItem).position.y1 * hPercent)
-                let x3 = Math.floor((item as CanvasHistoryItem).position.x3 * wPercent)
-                let y3 = Math.floor((item as CanvasHistoryItem).position.y3 * hPercent)
-                drawData.x = (x1 + x3) / 2
-                drawData.y = (y1 + y3) / 2
-                drawData.r = Math.abs(x3 - x1) / 2;
-                (item as CanvasHistoryItem).position = getRectAreaData(x1, (y1 + y3) / 2 - drawData.r, x3, (y1 + y3) / 2 + drawData.r)
-            }
-            //菱形
-            else if (drawType == 5) {
-                drawData.x1 = Math.floor(drawData.x1 * wPercent)
-                drawData.y1 = Math.floor(drawData.y1 * hPercent)
-                drawData.x2 = Math.floor(drawData.x2 * wPercent)
-                drawData.y2 = Math.floor(drawData.y2 * hPercent)
-                drawData.x3 = Math.floor(drawData.x3 * wPercent)
-                drawData.y3 = Math.floor(drawData.y3 * hPercent)
-                drawData.x4 = Math.floor(drawData.x4 * wPercent)
-                drawData.y4 = Math.floor(drawData.y4 * hPercent)
-            }
-            //文字
-            else if (drawType == 6) {}
-            //图片
-            else if (drawType == 7) {
-                drawData.x = (item as CanvasHistoryItem).position.x1
-                drawData.y = (item as CanvasHistoryItem).position.y1
-                drawData.w = (item as CanvasHistoryItem).position.w
-                drawData.h = (item as CanvasHistoryItem).position.h
-            }
-            list.push(item as CanvasHistoryItem)
-        }
-    })
-    return list
+    return resolveHistoryContent(canvasData, canvasResolution, step)
 }
 
 //恢复画板状态
 export async function restoreArtBoardState(canvasDataContent: CanvasHistoryItem[]): Promise<void> {
+    if (!ctx) return
     clearCanvas()
     clearTextDom()
-    ctx!.save()
-    for (let canvasData of canvasDataContent) {
-        let {
-            options,
-            position
-        } = canvasData
-        if (options.ctxAttributes) {
-            setObjAttributes(ctx!, options.ctxAttributes)
-        }
-        if (options.drawType == 0) {
-            drawCurveLineByPoints(ctx!, options.drawData)
-        } else if (options.drawType == 1) {
-            drawLineArrow(ctx!, options.drawData)
-        } else if (options.drawType == 2) {
-            drawRect(ctx!, options.drawData)
-        } else if (options.drawType == 3) {
-            drawTriangle(ctx!, options.drawData)
-        } else if (options.drawType == 4) {
-            drawCircle(ctx!, options.drawData)
-        } else if (options.drawType == 5) {
-            drawDiamond(ctx!, options.drawData)
-        } else if (options.drawType == 6) {
-            let editBox = document.createElement("div")
-            editBox.className = "bupu-edit-box"
-            editBox.style.padding = "4px"
-            editBox.style.border = "none"
-            editBox.style.left = options.style!.left + "px"
-            editBox.style.top = options.style!.top + "px"
-            editBox.style.fontSize = options.style!.fontSize + "px"
-            editBox.style.color = options.style!.color
-            editBox.innerText = options.text!
-            containerDom.appendChild(editBox)
-        } else if (options.drawType == 7) {
-            let {
-                imageUrl,
-                x,
-                y,
-                w,
-                h
-            } = options.drawData
-            if (imageCacheSet.has(imageUrl)) {
-                ctx!.drawImage(imageCacheSet.get(imageUrl)!, x, y, w, h)
-            } else {
-                let image = await asyncDrawImage(ctx!, options.drawData)
-                updateImageCacheSet(imageUrl, image)
-            }
-        }
+    ctx.save()
+    for (const canvasData of canvasDataContent) {
+        await renderHistoryOperation(ctx, canvasData, {
+            container: containerDom!,
+            imageCache: imageCacheSet,
+            saveImage: updateImageCacheSet
+        })
     }
-    ctx!.restore()
+    ctx.restore()
 }
 
 //插入图片
@@ -506,7 +287,7 @@ export async function image(file: File, handler?: () => void): Promise<void> {
 export function pointer(): void {
     clearSelect()
     temporaryCanvas!.style.zIndex = "-1"
-    overlayDom.style.zIndex = "50"
+    overlayDom!.style.zIndex = "50"
     let mousePress = false
     let last: { x: number; y: number } | null = null
     let first: { x: number; y: number } | null = null
@@ -532,27 +313,23 @@ export function pointer(): void {
                 }
             })
             //由于是堆叠在上面 因此取最后一个即可
-            if ((event as MouseEvent).srcElement!.className.indexOf("select-range-block") !== -1 ||
-                (event as MouseEvent).srcElement!.className.indexOf("select-range-border") !== -1) {
+            if (getTargetClassName(event).indexOf("select-range-block") !== -1 ||
+                getTargetClassName(event).indexOf("select-range-border") !== -1) {
                 first = xy
-                isStretch = (event as MouseEvent).srcElement!.className.split("__")[1]
+                isStretch = getTargetClassName(event).split("__")[1]
             } else {
                 if (list.length) {
                     /* 特殊处理文字内容，暂时不支持选中 */
                     if (list[list.length - 1].options.drawType == 6) {
                         return;
                     }
-                    selectAreaData = JSON.parse(JSON.stringify(list[list.length - 1]))
-                    changeIndex = list[list.length - 1].index
-                    nowSelectIndex = changeIndex
+                    const nextSelectArea = JSON.parse(JSON.stringify(list[list.length - 1])) as CanvasHistoryItem
+                    selectAreaData = nextSelectArea
+                    changeIndex = nextSelectArea.index
+                    nowSelectIndex = nextSelectArea.index
                     first = xy
                     isStretch = false
-                    let {
-                        x1,
-                        y1,
-                        x3,
-                        y3
-                    } = selectAreaData.position
+                    const { x1, y1, x3, y3 } = nextSelectArea.position
                     drawSelect(x1, y1, x3, y3, changeIndex)
                 } else {
                     clearSelect()
@@ -566,7 +343,10 @@ export function pointer(): void {
     }
 
     function move(event: MouseEvent | TouchEvent): void {
-        if (!mousePress || !first || changeIndex == -1) return
+        if (!mousePress || !first || changeIndex == -1 || !selectAreaData) {
+            mousePress = false
+            return
+        }
         let {
             x1,
             y1,
@@ -580,8 +360,8 @@ export function pointer(): void {
         last = getPos(event)
         if (isStretch) {
             if (isMobile() ||
-                ((event as MouseEvent).srcElement!.className.indexOf("select-range-block") == -1 &&
-                 (event as MouseEvent).srcElement!.className.indexOf("select-range-border") == -1)) {
+                (getTargetClassName(event).indexOf("select-range-block") == -1 &&
+                 getTargetClassName(event).indexOf("select-range-border") == -1)) {
                 if (last.x <= 15) {
                     last.x = 15
                 }
@@ -667,7 +447,7 @@ export function pointer(): void {
 
     function end(): void {
         mousePress = false
-        if (!last || changeIndex == -1) return
+        if (!last || changeIndex == -1 || !selectAreaData) return
         let rectAreaData: RectAreaData | null = null
         let {
             drawData,
@@ -701,7 +481,8 @@ export function pointer(): void {
                     })
                 })
                 //重新同步点坐标
-                let a = getPointsAreaData(newDrawData)
+                const a = getPointsAreaData(newDrawData)
+                if (!a) return
                 newDrawData.forEach((item: { x: number; y: number }) => {
                     item.x = item.x - (a.x1 - rectAreaData!.x1)
                     item.y = item.y - (a.y1 - rectAreaData!.y1)
@@ -792,28 +573,28 @@ export function pointer(): void {
         spaceY = null
     }
 
-    overlayDom.onmousedown = begin
-    overlayDom.onmousemove = move
-    overlayDom.onmouseup = end
+    overlayDom!.onmousedown = begin
+    overlayDom!.onmousemove = move
+    overlayDom!.onmouseup = end
     window.onmouseup = end
-    overlayDom.ontouchstart = begin
-    overlayDom.ontouchmove = move
-    overlayDom.ontouchend = end
+    overlayDom!.ontouchstart = begin
+    overlayDom!.ontouchmove = move
+    overlayDom!.ontouchend = end
     window.ontouchend = end
 }
 
 //线段绘制
 export function write(options: WriteOptions): void {
-    overlayDom.style.zIndex = "-1"
+    overlayDom!.style.zIndex = "-1"
     temporaryCanvas!.style.zIndex = "50"
     clearSelect()
     ctx!.lineWidth = options.lineWidth
     ctx!.strokeStyle = options.color
     temporaryCtx!.lineWidth = options.lineWidth
     temporaryCtx!.strokeStyle = options.color
-    let begin: (event: MouseEvent | TouchEvent) => void
-    let move: (event: MouseEvent | TouchEvent) => void
-    let end: () => void
+    let begin: (event: MouseEvent | TouchEvent) => void = () => {}
+    let move: (event: MouseEvent | TouchEvent) => void = () => {}
+    let end: () => void = () => {}
     let mousePress = false
     let last: { x: number; y: number } | null = null
     let first: { x: number; y: number } | null = null
@@ -867,7 +648,8 @@ export function write(options: WriteOptions): void {
             clearTemporaryCanvas()
             drawCurveLineByPoints(ctx!, drawData)
             //查找drawData最大区域的四个点坐标
-            let rectAreaData = getPointsAreaData(drawData)
+            const rectAreaData = getPointsAreaData(drawData)
+            if (!rectAreaData) return
             addCanvasData(1, rectAreaData, {
                 drawType: 0,
                 isSelected: 1,
@@ -933,7 +715,7 @@ export function write(options: WriteOptions): void {
 
 //绘制图形
 export function draw(options: DrawOptions): void {
-    overlayDom.style.zIndex = "-1"
+    overlayDom!.style.zIndex = "-1"
     temporaryCanvas!.style.zIndex = "50"
     clearSelect()
     let shapeType = options.shapeType
@@ -1107,7 +889,7 @@ export function draw(options: DrawOptions): void {
 //绘制文本框
 export function text(options: TextOptions): void {
     temporaryCtx!.restore()
-    overlayDom.style.zIndex = "-1"
+    overlayDom!.style.zIndex = "-1"
     temporaryCanvas!.style.zIndex = "50"
     clearSelect()
     clearTemporaryCanvas()
@@ -1136,7 +918,7 @@ export function text(options: TextOptions): void {
         editBox.style.top = first.y + "px"
         editBox.style.maxWidth = `calc(100% - ${first.x}px)`
         editBox.style.maxHeight = `calc(100% - ${first.y}px)`
-        containerDom.appendChild(editBox)
+        containerDom!.appendChild(editBox)
         editBox.focus()
         editBox.onblur = () => {
             clearTemporaryCanvas()
@@ -1221,7 +1003,7 @@ export function redo(): void {
 
 //橡皮擦
 export function eraser(): void {
-    overlayDom.style.zIndex = "-1"
+    overlayDom!.style.zIndex = "-1"
     temporaryCanvas!.style.zIndex = "-1"
     clearSelect()
     clearTemporaryCanvas()
@@ -1280,37 +1062,63 @@ export function eraser(): void {
 
 //打开页面
 export async function openFile(file: File): Promise<void> {
-    if (!whiteBoardDataSet.uploadFileHandler) return
+    if (!whiteBoardDataSet.uploadFileHandler) {
+        message({
+            type: "warn",
+            text: "请先配置 uploadFileHandler",
+            zIndex: 999
+        })
+        return
+    }
     message({
         type: "info",
         text: "文件打开中...",
         zIndex: 999,
         duration: 0
     })
-    let imageList = await whiteBoardDataSet.uploadFileHandler(file)
+    let imageList: string[]
+    try {
+        imageList = await whiteBoardDataSet.uploadFileHandler(file)
+    } catch (error) {
+        console.error("z-board openFile failed:", error)
+        message.destroyAll()
+        message({
+            type: "error",
+            text: "文件打开失败",
+            zIndex: 999
+        })
+        return
+    }
     message.destroyAll()
+    if (!Array.isArray(imageList) || !imageList.length) {
+        message({
+            type: "warn",
+            text: "没有可打开的页面",
+            zIndex: 999
+        })
+        return
+    }
     let changePageNum = allPageNumber - nowPageIndex
     let _canvasResolution = JSON.parse(JSON.stringify(canvasResolution))
-    imageList.forEach((imageUrl: string, index: number) => {
-        canvasHistory.push({
-            canvasData: [{
-                index: 0,
-                actionType: 1,
-                canvasResolution: _canvasResolution,
-                position: getRectAreaData(0, 0, canvas!.width, canvas!.height),
-                options: {
-                    drawType: 7,
-                    drawData: {
-                        x: 0,
-                        y: 0,
-                        w: canvas!.width,
-                        h: canvas!.height,
-                        imageUrl
-                    }
+    imageList.forEach((imageUrl: string) => {
+        const page = createHistoryPages(1)[0]
+        appendHistoryOperation(page, {
+            actionType: HistoryAction.add,
+            canvasResolution: _canvasResolution,
+            position: getRectAreaData(0, 0, canvas!.width, canvas!.height),
+            index: 0,
+            options: {
+                drawType: 7,
+                drawData: {
+                    x: 0,
+                    y: 0,
+                    w: canvas!.width,
+                    h: canvas!.height,
+                    imageUrl
                 }
-            }],
-            step: 0
+            }
         })
+        canvasHistory.push(page)
         allPageNumber += 1
     })
     changeNowPageIndex(changePageNum)
@@ -1321,10 +1129,7 @@ export function addPage(): void {
     if (allPageNumber < 99) {
         allPageNumber++
         nowPageIndex = allPageNumber - 1
-        canvasHistory.push({
-            canvasData: [],
-            step: -1
-        })
+        canvasHistory.push(createHistoryPages(1)[0])
         updatePaginationText(nowPageIndex + 1 + "/" + allPageNumber)
         clearTemporaryCanvas()
         clearCanvas()
@@ -1388,7 +1193,7 @@ export function save(): void {
     html2canvas(document.getElementsByClassName("bupu-container")[0] as any).then((canvas: HTMLCanvasElement) => {
         let a = document.createElement("a")
         a.href = canvas.toDataURL("image/png", 1)
-        a.download = Date.now() + "-wxx"
+        a.download = `z-board-${Date.now()}.png`
         a.click()
     })
 }
@@ -1413,7 +1218,7 @@ export function changeNowPageIndex(changeNum: number): void {
 //置顶
 export function setTop(): void {
     if (nowSelectIndex != -1) {
-        addCanvasData(-2, {} as RectAreaData, {
+        addCanvasData(HistoryAction.toTop, {} as RectAreaData, {
             topIndex: nowSelectIndex
         })
         clearTemporaryCanvas()
@@ -1424,7 +1229,7 @@ export function setTop(): void {
 //置底
 export function setBottom(): void {
     if (nowSelectIndex != -1) {
-        addCanvasData(-3, {} as RectAreaData, {
+        addCanvasData(HistoryAction.toBottom, {} as RectAreaData, {
             bottomIndex: nowSelectIndex
         })
         clearTemporaryCanvas()

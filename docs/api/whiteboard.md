@@ -8,7 +8,7 @@
 function initWhiteBoard(
   container: HTMLElement,
   options?: WhiteBoardOptions
-): void
+): WhiteBoardInstance
 ```
 
 ## 参数
@@ -46,7 +46,7 @@ interface WhiteBoardOptions {
 
 ## 白板工具
 
-挂载后白板顶部工具栏提供以下工具：
+挂载后白板左侧工具栏提供以下工具：
 
 | 工具 | 功能 | 快捷键 |
 |------|------|--------|
@@ -66,6 +66,8 @@ interface WhiteBoardOptions {
 
 选中元素后，会出现浮动工具栏支持**置顶**和**置底**操作。选中元素后按 `Backspace` 键可删除。
 
+方向键快捷键只在非输入控件和文本编辑框中获得焦点时生效。
+
 ## 使用示例
 
 ```typescript
@@ -73,8 +75,7 @@ import { initWhiteBoard } from 'z-board'
 import 'z-board/style.css'
 
 const container = document.getElementById('app')
-
-initWhiteBoard(container, {
+const whiteBoard = initWhiteBoard(container, {
   addCanvasHistoryHandler: (data) => {
     console.log('画板数据变化:', data)
   },
@@ -92,9 +93,10 @@ initWhiteBoard(container, {
 ## 卸载
 
 ```typescript
-import { unmountWhiteBoard } from 'z-board'
+whiteBoard.unmount()
 
-// 卸载白板，清理 DOM 和事件绑定
+// 或使用全局卸载
+import { unmountWhiteBoard } from 'z-board'
 unmountWhiteBoard()
 ```
 

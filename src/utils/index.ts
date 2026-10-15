@@ -1,18 +1,10 @@
-import type { Point, RectArea } from '../types'
+import type { Point, RectAreaData } from '../types'
 
 export * from "./canvas"
 export * from "./var"
 
-export function fileToUrl(file: File): string | null {
-    let url: string | null = null
-    if (window.createObjectURL) {
-        url = window.createObjectURL(file)
-    } else if (window.URL) {
-        url = window.URL.createObjectURL(file)
-    } else if (window.webkitURL) {
-        url = window.webkitURL.createObjectURL(file)
-    }
-    return url
+export function fileToUrl(file: File): string {
+    return window.URL.createObjectURL(file)
 }
 
 export function fileToBase64(file: File): Promise<string> {
@@ -37,38 +29,42 @@ export function domAppendChild(dom: Node, domList: Node[]): Node {
 }
 
 export function getPos(event: MouseEvent | TouchEvent): Point {
-    let isTouch = event.type.indexOf("touch") >= 0
-    let x: number
-    let y: number
-    
-    if (isTouch && 'touches' in event) {
-        x = event.touches[0].pageX
-        y = event.touches[0].pageY
-    } else if ('offsetX' in event && 'target' in event && event.target instanceof Element) {
-        x = event.offsetX + event.target.offsetLeft
-        y = event.offsetY + event.target.offsetTop
+    const isTouch = event.type.startsWith("touch")
+    let x = 0
+    let y = 0
+
+    if (isTouch) {
+        const touchEvent = event as TouchEvent
+        const touch = (touchEvent.type.endsWith("end") || touchEvent.type.endsWith("cancel")
+            ? touchEvent.changedTouches[0]
+            : touchEvent.touches[0])
+        if (touch) {
+            x = touch.pageX
+            y = touch.pageY
+        }
     } else {
-        x = 0
-        y = 0
+        const mouseEvent = event as MouseEvent
+        x = mouseEvent.offsetX
+        y = mouseEvent.offsetY
     }
-    
+
     return { x, y }
 }
 
-export function getRectAreaData(x1: number, y1: number, x2: number, y2: number): RectArea & { x1: number; y1: number; x2: number; y2: number; x3: number; y3: number; x4: number; y4: number; area: number } {
-    if (x1 == x2) {
-        x1 = x1 + 5
-        x2 = x2 - 5
+export function getRectAreaData(x1: number, y1: number, x2: number, y2: number): RectAreaData {
+    if (x1 === x2) {
+        x1 += 5
+        x2 -= 5
     }
-    if (y1 == y2) {
-        y1 = y1 + 5
-        y2 = y2 - 5
+    if (y1 === y2) {
+        y1 += 5
+        y2 -= 5
     }
-    
-    const result: Record<string, number> = {
-        w: Math.abs(x1 - x2),
-        h: Math.abs(y1 - y2),
-        area: Math.abs((x1 - x2) * (y1 - y2))
+
+    const result: RectAreaData = {
+        x1: 0, y1: 0, x2: 0, y2: 0,
+        x3: 0, y3: 0, x4: 0, y4: 0,
+        w: 0, h: 0, area: 0
     }
 
     if (x1 > x2 && y1 > y2) {
@@ -77,53 +73,47 @@ export function getRectAreaData(x1: number, y1: number, x2: number, y2: number):
         Object.assign(result, { x1: x2, y1: y1, x2: x1, y2: y1, x3: x1, y3: y2, x4: x2, y4: y2 })
     } else if (x1 < x2 && y1 > y2) {
         Object.assign(result, { x1: x1, y1: y2, x2: x2, y2: y2, x3: x2, y3: y1, x4: x1, y4: y1 })
-    } else if (x1 < x2 && y1 < y2) {
+    } else {
         Object.assign(result, { x1: x1, y1: y1, x2: x2, y2: y1, x3: x2, y3: y2, x4: x1, y4: y2 })
     }
 
-    for (let key in result) {
+    result.w = Math.floor(Math.abs(x1 - x2))
+    result.h = Math.floor(Math.abs(y1 - y2))
+    result.area = result.w * result.h
+
+    for (const key of ["x1", "y1", "x2", "y2", "x3", "y3", "x4", "y4"] as const) {
         result[key] = Math.floor(result[key])
     }
 
-    return result as RectArea & { x1: number; y1: number; x2: number; y2: number; x3: number; y3: number; x4: number; y4: number; area: number }
-}
-
-export function getPointsAreaData(pointsList: Point[]): (RectArea & { x1: number; y1: number; x2: number; y2: number; x3: number; y3: number; x4: number; y4: number; area: number }) | undefined {
-    if (!pointsList.length) return undefined
-    
-    let _pointsList = JSON.parse(JSON.stringify(pointsList))
-    _pointsList.sort((a: Point, b: Point) => a.x - b.x)
-    
-    let xPoint1 = _pointsList[0]
-    let xPoint2 = _pointsList[_pointsList.length - 1]
-    
-    _pointsList.sort((a: Point, b: Point) => a.y - b.y)
-    
-    let yPoint1 = _pointsList[0]
-    let yPoint2 = _pointsList[_pointsList.length - 1]
-    
-    const result = {
-        x1: xPoint1.x,
-        x2: xPoint2.x,
-        x3: xPoint2.x,
-        x4: xPoint1.x,
-        y1: yPoint1.y,
-        y2: yPoint1.y,
-        y3: yPoint2.y,
-        y4: yPoint1.y,
-        w: Math.abs(xPoint1.x - xPoint2.x),
-        h: Math.abs(yPoint1.y - yPoint2.y),
-        area: Math.abs((xPoint1.x - xPoint2.x) * (yPoint1.y - yPoint2.y))
-    }
-    
-    for (let key in result) {
-        result[key] = Math.floor(result[key])
-    }
-    
     return result
 }
 
-export function changeIsSelected(domList: HTMLCollectionOf<Element>, selectDom: Element): void {
+export function getPointsAreaData(pointsList: Point[]): RectAreaData | undefined {
+    if (!pointsList.length) return undefined
+
+    const sortedByX = [...pointsList].sort((a, b) => a.x - b.x)
+    const sortedByY = [...pointsList].sort((a, b) => a.y - b.y)
+    const x1 = sortedByX[0].x
+    const x3 = sortedByX[sortedByX.length - 1].x
+    const y1 = sortedByY[0].y
+    const y3 = sortedByY[sortedByY.length - 1].y
+
+    return {
+        x1,
+        y1,
+        x2: x3,
+        y2: y1,
+        x3,
+        y3,
+        x4: x1,
+        y4: y3,
+        w: Math.floor(Math.abs(x1 - x3)),
+        h: Math.floor(Math.abs(y1 - y3)),
+        area: Math.floor(Math.abs((x1 - x3) * (y1 - y3)))
+    }
+}
+
+export function changeIsSelected(domList: Element[] | HTMLCollectionOf<Element>, selectDom: Element): void {
     for (let i = 0; i < domList.length; i++) {
         domList[i].classList.remove("is-selected")
     }
@@ -137,10 +127,10 @@ export function isInRectArea(x1: number, y1: number, x2: number, y2: number, x: 
            ((x >= x1 && x <= x2) && (y >= y2 && y <= y1))
 }
 
-export function setObjAttributes<T extends object, K extends keyof T>(obj: T, options: Partial<T>): void {
+export function setObjAttributes<T extends object>(obj: T, options: Partial<T>): void {
     if (!obj || !options) return
-    for (let key in options) {
-        obj[key] = options[key] as T[K]
+    for (const [key, value] of Object.entries(options)) {
+        (obj as Record<string, unknown>)[key] = value
     }
 }
 

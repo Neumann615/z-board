@@ -21,7 +21,6 @@ export default defineConfig({
     },
     build: {
         copyPublicDir: false,
-        terserOptions: {compress: {drop_console: true, drop_debugger: true}},
         emptyOutDir: true,
         brotliSize: false,
         write: true,
@@ -31,7 +30,7 @@ export default defineConfig({
         outDir: "lib",
         rollupOptions: {
             external: (id) => {
-                if (id.startsWith('msg-alert') || id.startsWith('js-web-screen-shot') || id.startsWith('html2canvas')) {
+                if (id.startsWith('msg-alert') || id.startsWith('html2canvas')) {
                     return true
                 }
                 return false

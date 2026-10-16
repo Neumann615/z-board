@@ -371,14 +371,20 @@ function createEditStageTransition(
                 )
 
                 const imageUrl = targetCanvas.toDataURL("image/png", 1)
+
+                // 进入编辑阶段时，同步把 canvasResolution 更新为裁剪区域尺寸。
+                // 否则 observeCanvasResolution 会把已经裁剪过的底图再按旧的全容器比例缩放一次。
+                canvasResolution.w = w
+                canvasResolution.h = h
+                addCanvasData(1, getRectAreaData(0, 0, w, h), {
+                    drawType: 7,
+                    isSelected: 0,
+                    drawData: { x: 0, y: 0, w, h, imageUrl }
+                })
+
                 const cacheImage = new Image()
                 cacheImage.crossOrigin = "anonymous"
                 cacheImage.onload = () => {
-                    addCanvasData(1, getRectAreaData(0, 0, w, h), {
-                        drawType: 7,
-                        isSelected: 0,
-                        drawData: { x: 0, y: 0, w, h, imageUrl }
-                    })
                     updateImageCacheSet(imageUrl, cacheImage)
 
                     const editBox = document.createElement("div")

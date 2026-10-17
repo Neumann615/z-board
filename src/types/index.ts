@@ -30,6 +30,8 @@ export interface CanvasContextAttributes {
   lineWidth: number
   strokeStyle: string
   fillStyle?: string
+  lineCap?: CanvasLineCap
+  lineJoin?: CanvasLineJoin
 }
 
 export interface CanvasOperationOptions {

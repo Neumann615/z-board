@@ -73,41 +73,39 @@ export function drawCurveLine(ctx: CanvasRenderingContext2D, drawData: CurveLine
     ctx.closePath()
 }
 
-export function drawCurveLineByPoints(ctx: CanvasRenderingContext2D, drawData: Point[]): void {
-    let nowPoint: Point | null = null
-    let newPoint: Point | null = null
-    
-    if (drawData.length >= 3) {
-        ctx.beginPath()
-        for (let i = 0; i < drawData.length - 2; i++) {
-            newPoint = {
-                x: (drawData[i + 1].x + drawData[i + 2].x) / 2,
-                y: (drawData[i + 1].y + drawData[i + 2].y) / 2
-            }
-            
-            if (nowPoint) {
-                drawCurveLine(ctx, {
-                    x1: nowPoint.x,
-                    y1: nowPoint.y,
-                    x2: drawData[i + 1].x,
-                    y2: drawData[i + 1].y,
-                    x3: newPoint.x,
-                    y3: newPoint.y
-                })
-            } else {
-                drawCurveLine(ctx, {
-                    x1: drawData[i].x,
-                    y1: drawData[i].y,
-                    x2: drawData[i + 1].x,
-                    y2: drawData[i + 1].y,
-                    x3: newPoint.x,
-                    y3: newPoint.y
-                })
-            }
-            nowPoint = newPoint
-        }
-        ctx.closePath()
+export function buildSmoothedCurvePath(points: Point[]): Path2D {
+    const path = new Path2D()
+    if (points.length < 2) return path
+
+    path.moveTo(points[0].x, points[0].y)
+
+    if (points.length === 2) {
+        path.lineTo(points[1].x, points[1].y)
+        return path
     }
+
+    for (let index = 1; index < points.length - 1; index++) {
+        const current = points[index]
+        const next = points[index + 1]
+        const midX = (current.x + next.x) / 2
+        const midY = (current.y + next.y) / 2
+
+        path.quadraticCurveTo(current.x, current.y, midX, midY)
+    }
+
+    path.lineTo(points[points.length - 1].x, points[points.length - 1].y)
+    return path
+}
+
+export function drawCurveLineByPoints(ctx: CanvasRenderingContext2D, drawData: Point[]): void {
+    if (drawData.length < 2) return
+
+    const path = buildSmoothedCurvePath(drawData)
+    ctx.save()
+    ctx.lineCap = "round"
+    ctx.lineJoin = "round"
+    ctx.stroke(path)
+    ctx.restore()
 }
 
 export async function asyncDrawImage(ctx: CanvasRenderingContext2D, drawData: ImageDrawData): Promise<HTMLImageElement> {

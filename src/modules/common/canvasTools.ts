@@ -7,9 +7,8 @@ import type {
     WriteOptions
 } from '../../types'
 import {
+    buildSmoothedCurvePath,
     drawCircle,
-    drawCurveLine,
-    drawCurveLineByPoints,
     drawDiamond,
     drawLineArrow,
     drawRect,
@@ -54,41 +53,83 @@ export function createWriteTool(context: CanvasToolContext, options: WriteOption
 
     let pressed = false
     let first: Point | null = null
-    let last: Point | null = null
+    let lastPointer: Point | null = null
+    let lastAccepted: Point | null = null
+    let smoothedEnd: Point | null = null
     let points: Point[] = []
-    let controlPoint: Point | null = null
+    let curvePath = new Path2D()
+
+    const midpoint = (first: Point, second: Point): Point => ({
+        x: (first.x + second.x) / 2,
+        y: (first.y + second.y) / 2
+    })
+
+    const strokePreview = (): void => {
+        const tail = new Path2D()
+        if (smoothedEnd && lastPointer && smoothedEnd !== lastPointer) {
+            tail.moveTo(smoothedEnd.x, smoothedEnd.y)
+            tail.lineTo(lastPointer.x, lastPointer.y)
+        }
+
+        context.clearTemporaryCanvas()
+        context.temporaryCtx.save()
+        context.temporaryCtx.lineCap = "round"
+        context.temporaryCtx.lineJoin = "round"
+        context.temporaryCtx.stroke(curvePath)
+        context.temporaryCtx.stroke(tail)
+        context.temporaryCtx.restore()
+    }
 
     const begin = (event: PointerEvent): void => {
         pressed = true
         first = getPos(event)
-        points.push(first)
+        lastPointer = first
+        lastAccepted = first
+        smoothedEnd = first
+        points = [first]
+        curvePath = new Path2D()
+        curvePath.moveTo(first.x, first.y)
     }
 
     const move = (event: PointerEvent): void => {
-        if (!pressed || !points.length) return
+        if (!pressed || !lastPointer) return
+
         const position = getPos(event)
-        if (distance(points[points.length - 1], position) < 5) return
-
-        points.push(position)
-        if (points.length < 3) return
-
-        const [previous, current] = points.slice(-2)
-        const nextControlPoint = {
-            x: (previous.x + current.x) / 2,
-            y: (previous.y + current.y) / 2
+        if (distance(lastPointer, position) >= 5) {
+            const previous = lastPointer
+            const middle = midpoint(previous, position)
+            curvePath.quadraticCurveTo(previous.x, previous.y, middle.x, middle.y)
+            smoothedEnd = middle
+            lastAccepted = position
+            lastPointer = position
+            points.push(position)
+        } else {
+            lastPointer = position
         }
 
-        const curve = controlPoint
-            ? { x1: controlPoint.x, y1: controlPoint.y, x2: previous.x, y2: previous.y, x3: nextControlPoint.x, y3: nextControlPoint.y }
-            : { x1: points[0].x, y1: points[0].y, x2: points[1].x, y2: points[1].y, x3: nextControlPoint.x, y3: nextControlPoint.y }
-        drawCurveLine(context.temporaryCtx, curve)
-        controlPoint = nextControlPoint
+        strokePreview()
     }
 
     const end = (): void => {
+        if (!pressed || !first || !lastPointer) {
+            pressed = false
+            return
+        }
+
+        // 补齐最后一次不足采样距离的尾巴，避免松手时线段突然变短。
+        if (lastPointer !== lastAccepted) {
+            points.push(lastPointer)
+            curvePath.lineTo(lastPointer.x, lastPointer.y)
+        }
+
         context.clearTemporaryCanvas()
+        context.ctx.save()
+        context.ctx.lineCap = "round"
+        context.ctx.lineJoin = "round"
+        context.ctx.stroke(curvePath)
+        context.ctx.restore()
+
         if (points.length >= 2) {
-            drawCurveLineByPoints(context.ctx, points)
             const position = getPointsAreaData(points)
             if (position) {
                 context.addOperation(position, {
@@ -97,17 +138,21 @@ export function createWriteTool(context: CanvasToolContext, options: WriteOption
                     drawData: points,
                     ctxAttributes: {
                         lineWidth: options.lineWidth,
-                        strokeStyle: options.color
+                        strokeStyle: options.color,
+                        lineCap: "round",
+                        lineJoin: "round"
                     }
                 })
             }
         }
 
         pressed = false
-        controlPoint = null
-        last = null
         first = null
+        lastPointer = null
+        lastAccepted = null
+        smoothedEnd = null
         points = []
+        curvePath = new Path2D()
     }
 
     context.temporaryCanvas.onmousedown = begin
@@ -116,7 +161,6 @@ export function createWriteTool(context: CanvasToolContext, options: WriteOption
     context.temporaryCanvas.ontouchstart = begin
     context.temporaryCanvas.ontouchmove = move
     context.temporaryCanvas.ontouchend = end
-    void last
 }
 
 export function createDrawTool(context: CanvasToolContext, options: DrawOptions): void {

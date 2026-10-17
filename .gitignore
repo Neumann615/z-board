@@ -28,3 +28,6 @@ lib
 # VitePress
 docs/.vitepress/dist
 docs/.vitepress/cache
+
+# AI-generated drafts and local validation output
+/ai-drafts

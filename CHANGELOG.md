@@ -31,6 +31,7 @@
 - 将截图标注历史简化为单页模型，锁存编辑阶段切换，并清理截图工具栏生命周期
 - 修复截图进入编辑阶段时 canvasResolution 未同步导致裁剪图被二次缩放的问题
 - 重构自由曲线为单一平滑 Path2D，启用圆角端点/连接，并补齐实时尾部和收笔尾段
+- 新增 CanvasHistoryStore，接管截图标注历史并补充状态生命周期测试
 - 恢复并强制通过 TypeScript `strict: true`
 - 补充本地 `html2canvas` 模块声明，整理截图历史缩放与 DOM/Context 生命周期类型
 - 移除未使用的 `js-web-screen-shot` 和自引用 `z-board` 依赖

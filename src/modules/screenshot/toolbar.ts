@@ -1,11 +1,7 @@
 import { canvasResolution, containerDom, overlayDom } from "./core"
 import { screenShotDataSet } from "/src/utils/index"
-import {
-    appendHistoryOperation,
-    createHistoryPages,
-    HistoryAction,
-    resolveHistoryContent
-} from "/src/modules/common/history"
+import { HistoryAction } from "/src/modules/common/history"
+import { CanvasHistoryStore } from "/src/modules/common/canvasHistoryStore"
 import { renderHistoryOperation } from "/src/modules/common/renderOperation"
 import { downloadDataUrl, exportHTMLElementAsPng } from "/src/modules/common/exportCanvas"
 
@@ -21,11 +17,10 @@ import html2canvas from "../../html2canvas.esm"
 import type {
     CanvasOperationItem as CanvasDataItem,
     CanvasOperationOptions as CanvasOptions,
-    CanvasPage as CanvasHistoryItem,
     RectAreaData
 } from "../../types"
 
-export let canvasHistory: CanvasHistoryItem[] = createHistoryPages(1)
+const historyStore = new CanvasHistoryStore(1)
 let canvas: HTMLCanvasElement | null = null
 let ctx: CanvasRenderingContext2D | null = null
 let temporaryCanvas: HTMLCanvasElement | null = null
@@ -44,13 +39,7 @@ export function updateImageCacheSet(imageUrl: string, imageElement: HTMLImageEle
 //1添加 0移动 -1删除 2置顶 -2置底 3拉伸
 export function addCanvasData(actionType: number, position: RectAreaData, options: CanvasOptions): void {
     if (!position) return
-    appendHistoryOperation(canvasHistory[0], {
-        actionType,
-        position,
-        options,
-        index: canvasHistory[0].canvasData.length,
-        canvasResolution: JSON.parse(JSON.stringify(canvasResolution))
-    })
+    historyStore.append(actionType, position, options, canvasResolution)
 }
 
 function clearTextDom(): void {
@@ -83,11 +72,6 @@ export function getCanvasObject(canvas1: HTMLCanvasElement, temporaryCanvas1: HT
     temporaryCanvas = temporaryCanvas1
     ctx = canvas1.getContext("2d")
     temporaryCtx = temporaryCanvas1.getContext("2d")
-}
-
-//历史记录的canvas纪录列表需要同步处理  结合当前canvas屏幕分辨率进行同步
-export function getCanvasDataContent(canvasData: CanvasDataItem[], step?: number): CanvasDataItem[] {
-    return resolveHistoryContent(canvasData, canvasResolution, step)
 }
 
 //恢复画板状态
@@ -136,20 +120,18 @@ function createToolContext(): CanvasToolContext {
 
 //撤销。截图历史中的第 0 步是底图，不允许撤掉。
 export async function undo(minimumStep = 1): Promise<void> {
-    const page = canvasHistory[0]
     const minimum = Math.max(0, minimumStep)
-    if (page.step < minimum) return
+    if (!historyStore.undo(minimum)) return
 
     clearCanvas()
     clearTextDom()
-    page.step -= 1
-    await restoreArtBoardState(getCanvasDataContent(page.canvasData, page.step))
+    await restoreArtBoardState(historyStore.resolveActive(canvasResolution))
 }
 
 //画板分辨率变化时重新绘制
 export function redrawByResolution(): void {
-    if (canvasHistory.length && ctx) {
-        void restoreArtBoardState(getCanvasDataContent(canvasHistory[0].canvasData))
+    if (ctx) {
+        void restoreArtBoardState(historyStore.resolveActive(canvasResolution))
     }
 }
 
@@ -180,5 +162,5 @@ export async function success(): Promise<void> {
 
 //重置
 export function resetToolbarData(): void {
-    canvasHistory = createHistoryPages(1)
+    historyStore.reset()
 }

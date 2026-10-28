@@ -33,6 +33,7 @@
 - 重构自由曲线为单一平滑 Path2D，启用圆角端点/连接，并补齐实时尾部和收笔尾段
 - 新增 CanvasHistoryStore，接管截图标注历史并补充状态生命周期测试
 - 新增 WhiteboardHistoryStore，统一管理白板多页历史、翻页和外部历史同步
+- 支持白板文本选中、拖动、双击再次编辑、删除，并在历史缩放时同步文本位置和字号
 - 恢复并强制通过 TypeScript `strict: true`
 - 补充本地 `html2canvas` 模块声明，整理截图历史缩放与 DOM/Context 生命周期类型
 - 移除未使用的 `js-web-screen-shot` 和自引用 `z-board` 依赖

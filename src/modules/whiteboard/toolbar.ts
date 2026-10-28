@@ -2,6 +2,7 @@ import message from "msg-alert"
 import html2canvas from "../../html2canvas.esm"
 import type {
     CanvasHistoryItem,
+    CanvasOperationItem,
     CanvasOperationOptions as CanvasOptions,
     CanvasPage,
     DrawOptions,
@@ -125,10 +126,13 @@ export function updateImageCacheSet(imageUrl: string, imageElement: HTMLImageEle
 //添加canvas操作历史
 //actionType
 //1添加 0移动 -1删除 2置顶 -2置底 3拉伸
-export function addCanvasData(actionType: number, position: RectAreaData, options: CanvasOptions, pageIndex?: number): void {
-    if (!position) return
-    historyStore.append(actionType, position, options, canvasResolution, pageIndex)
+export function addCanvasData(actionType: number, position: RectAreaData, options: CanvasOptions, pageIndex?: number): CanvasOperationItem {
+    if (!position) {
+        throw new Error("Canvas operation position is required")
+    }
+    const operation = historyStore.append(actionType, position, options, canvasResolution, pageIndex)
     notifyCanvasHistory()
+    return operation
 }
 
 //绘制选中框
@@ -262,7 +266,9 @@ export function pointer(): void {
         addOperation: (actionType, position, options) => {
             addCanvasData(actionType, position, options)
         },
-        refresh: () => restoreArtBoardState(historyStore.activeContent(canvasResolution))
+        refresh: () => restoreArtBoardState(historyStore.activeContent(canvasResolution)),
+        moveElement: (index, left, top) => moveTextElement(index, left, top),
+        beginTextEdit: index => beginTextEditing(index)
     })
 }
 
@@ -332,6 +338,56 @@ export function redo(): void {
     clearTextDom()
     restoreArtBoardState(historyStore.contentThroughStep())
     notifyCanvasHistory()
+}
+
+function getTextElement(index: number): HTMLElement | null {
+    return containerDom?.querySelector(`[data-operation-index="${index}"]`) ?? null
+}
+
+function moveTextElement(index: number, left: number, top: number): boolean {
+    const element = getTextElement(index)
+    if (!element) return false
+    element.style.left = `${left}px`
+    element.style.top = `${top}px`
+    return true
+}
+
+function beginTextEditing(index: number): boolean {
+    const operation = historyStore.findOperation(index)
+    const element = getTextElement(index)
+    if (!operation || operation.options.drawType != 6 || !operation.options.style || !operation.options.text || !element) return false
+
+    const previousOverlayPointerEvents = overlayDom!.style.pointerEvents
+    overlayDom!.style.pointerEvents = "none"
+    element.style.pointerEvents = "auto"
+    element.style.border = "2px dashed #333333"
+    element.style.padding = "4px"
+    element.contentEditable = "true"
+    element.focus()
+
+    const finishEditing = (): void => {
+        element.removeEventListener("blur", finishEditing)
+        overlayDom!.style.pointerEvents = previousOverlayPointerEvents || "auto"
+        element.style.pointerEvents = "none"
+        element.contentEditable = "false"
+
+        const left = Number.parseFloat(element.style.left) || operation.options.style!.left
+        const top = Number.parseFloat(element.style.top) || operation.options.style!.top
+        const position = getRectAreaData(
+            left,
+            top,
+            left + element.clientWidth,
+            top + element.clientHeight
+        )
+
+        if (historyStore.updateText(index, element.innerText, position)) {
+            notifyCanvasHistory()
+            drawSelect(position.x1, position.y1, position.x3, position.y3, index)
+        }
+    }
+
+    element.addEventListener("blur", finishEditing, { once: true })
+    return true
 }
 
 function notifyCanvasHistory(): void {

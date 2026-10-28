@@ -69,17 +69,21 @@ export class WhiteboardHistoryStore {
         options: CanvasOperationOptions,
         resolution: CanvasResolution,
         pageIndex = this.activeIndex
-    ): void {
+    ): CanvasOperationItem {
         const page = this.pages[pageIndex]
-        if (!page) return
+        if (!page) {
+            throw new Error("Whiteboard history page not found")
+        }
 
-        appendHistoryOperation(page, {
+        const operation: CanvasOperationItem = {
             actionType,
             position: structuredClone(position),
             options: structuredClone(options),
             index: page.canvasData.length,
             canvasResolution: { ...resolution }
-        })
+        }
+        appendHistoryOperation(page, operation)
+        return operation
     }
 
     activeContent(resolution: CanvasResolution): CanvasOperationItem[] {
@@ -203,6 +207,31 @@ export class WhiteboardHistoryStore {
         this.pages.push(page)
         this.activeIndex = this.pages.length - 1
         return page
+    }
+
+    findOperation(operationIndex: number): CanvasOperationItem | null {
+        for (let index = this.pages.length - 1; index >= 0; index--) {
+            const operation = this.pages[index].canvasData.find(item => item.index === operationIndex)
+            if (operation) return operation
+        }
+        return null
+    }
+
+    updateText(
+        operationIndex: number,
+        text: string,
+        position: RectAreaData
+    ): boolean {
+        const operation = this.findOperation(operationIndex)
+        if (!operation || operation.actionType != HistoryAction.add || operation.options.drawType != 6) return false
+
+        operation.options.text = text
+        operation.position = structuredClone(position)
+        if (operation.options.style) {
+            operation.options.style.left = position.x1
+            operation.options.style.top = position.y1
+        }
+        return true
     }
 
     replace(snapshot: WhiteboardHistorySnapshot): void {

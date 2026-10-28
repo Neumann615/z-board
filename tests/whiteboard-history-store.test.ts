@@ -169,6 +169,39 @@ describe('WhiteboardHistoryStore', () => {
         expect(store.activePage.step).toBe(0)
     })
 
+    it('finds and updates a text operation by its stable index', () => {
+        const store = new WhiteboardHistoryStore()
+        store.append(HistoryAction.add, rectangle(0, 0, 100, 100), {
+            drawType: 6,
+            text: 'old',
+            isSelected: 1,
+            style: { fontSize: 20, left: 10, top: 20, color: '#000000' }
+        }, resolution)
+        store.append(HistoryAction.move, rectangle(40, 60, 140, 160), {
+            moveIndex: 0,
+            isSelected: 1,
+            style: { fontSize: 20, left: 40, top: 60, color: '#000000' }
+        }, resolution)
+
+        const position = rectangle(40, 60, 150, 180)
+        expect(store.updateText(0, 'new', position)).toBe(true)
+
+        const operation = store.findOperation(0)
+        expect(operation?.options.text).toBe('new')
+        expect(operation?.options.style).toEqual({
+            fontSize: 20,
+            left: position.x1,
+            top: position.y1,
+            color: '#000000'
+        })
+        expect(store.activeContent(resolution)[0].options.style).toEqual({
+            fontSize: 20,
+            left: position.x1,
+            top: position.y1,
+            color: '#000000'
+        })
+    })
+
     it('replaces external history and clamps a malformed active index', () => {
         const store = new WhiteboardHistoryStore()
         const pages = [

@@ -1,4 +1,5 @@
 import type {
+    CanvasOperationItem,
     CanvasOperationOptions,
     DrawOptions,
     Point,
@@ -24,7 +25,7 @@ export interface CanvasToolContext {
     overlay: HTMLElement
     temporaryCanvas: HTMLCanvasElement
     container: HTMLElement
-    addOperation: (position: RectAreaData, options: CanvasOperationOptions) => void
+    addOperation: (position: RectAreaData, options: CanvasOperationOptions) => CanvasOperationItem
     clearTemporaryCanvas: () => void
     clearSelection: () => void
 }
@@ -351,7 +352,7 @@ export function createTextTool(context: CanvasToolContext, options: TextOptions)
                 textPoint.y + editBox.clientHeight
             )
             if (editBox.innerText.length) {
-                context.addOperation(position, {
+                const operation = context.addOperation(position, {
                     drawType: 6,
                     text: editBox.innerText,
                     isSelected: 1,
@@ -362,6 +363,7 @@ export function createTextTool(context: CanvasToolContext, options: TextOptions)
                         color: options.color
                     }
                 })
+                editBox.dataset.operationIndex = String(operation.index)
             }
             editBox.style.border = "none"
             editBox.style.padding = "4px"

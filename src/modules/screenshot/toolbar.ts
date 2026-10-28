@@ -37,10 +37,14 @@ export function updateImageCacheSet(imageUrl: string, imageElement: HTMLImageEle
 //添加canvas操作历史
 //actionType
 //1添加 0移动 -1删除 2置顶 -2置底 3拉伸
-export function addCanvasData(actionType: number, position: RectAreaData, options: CanvasOptions): void {
-    if (!position) return
-    historyStore.append(actionType, position, options, canvasResolution)
+export function addCanvasData(actionType: number, position: RectAreaData, options: CanvasOptions): CanvasDataItem {
+    if (!position) {
+        throw new Error("Canvas operation position is required")
+    }
+
+    return historyStore.append(actionType, position, options, canvasResolution)
 }
+
 
 function clearTextDom(): void {
     clearEditableText()

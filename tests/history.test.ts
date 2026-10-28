@@ -89,6 +89,66 @@ describe('canvas history resolution', () => {
         expect(content[0].options.drawData).toEqual({ x: 50, y: 40, w: 100, h: 60 })
     })
 
+    it('scales text position and font size with the canvas', () => {
+        const history = [{
+            actionType: HistoryAction.add,
+            position: rectangle(100, 100, 400, 300),
+            options: {
+                drawType: 6,
+                text: 'hello',
+                isSelected: 1,
+                style: { fontSize: 20, left: 100, top: 100, color: '#000000' }
+            },
+            index: 0,
+            canvasResolution: resolution
+        }]
+
+        const content = resolveHistoryContent(history, { w: 400, h: 200 })
+
+        expect(content[0].options.style).toEqual({
+            fontSize: 10,
+            left: 50,
+            top: 50,
+            color: '#000000'
+        })
+        expect(content[0].position).toMatchObject({ x1: 50, y1: 50, x3: 200, y3: 150 })
+    })
+
+    it('applies a text move through operation style', () => {
+        const history = [
+            {
+                actionType: HistoryAction.add,
+                position: rectangle(100, 100, 300, 200),
+                options: {
+                    drawType: 6,
+                    text: 'hello',
+                    isSelected: 1,
+                    style: { fontSize: 16, left: 100, top: 100, color: '#000000' }
+                },
+                index: 0,
+                canvasResolution: resolution
+            },
+            {
+                actionType: HistoryAction.move,
+                position: rectangle(250, 180, 450, 280),
+                options: {
+                    moveIndex: 0,
+                    isSelected: 1,
+                    style: { fontSize: 16, left: 250, top: 180, color: '#000000' }
+                },
+                index: 1,
+                canvasResolution: resolution
+            }
+        ]
+
+        const content = resolveHistoryContent(history, resolution)
+
+        expect(content).toHaveLength(1)
+        expect(content[0].options.text).toBe('hello')
+        expect(content[0].options.style).toEqual({ fontSize: 16, left: 250, top: 180, color: '#000000' })
+        expect(content[0].position).toEqual(rectangle(250, 180, 450, 280))
+    })
+
     it('applies a move operation to its target and removes the move marker', () => {
         const movedPosition = rectangle(250, 180, 550, 320)
         const history = [

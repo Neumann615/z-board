@@ -23,6 +23,8 @@ export interface PointerToolDependencies {
         options: CanvasOperationOptions
     ) => void
     refresh: () => Promise<void> | void
+    moveElement: (index: number, left: number, top: number) => boolean
+    beginTextEdit: (index: number) => boolean
 }
 
 type PointerEvent = MouseEvent | TouchEvent
@@ -57,6 +59,7 @@ export function activatePointerTool(dependencies: PointerToolDependencies): void
     let offset: { x: number; y: number } | null = null
     let stretch: StretchDirection | false | null = null
     let changedDrawData: any = null
+    let editingTextIndex = -1
 
     function findSelectedItems(point: { x: number; y: number }): CanvasHistoryItem[] {
         return dependencies.historyContent().filter(item => {
@@ -165,9 +168,6 @@ export function activatePointerTool(dependencies: PointerToolDependencies): void
             return
         }
 
-        // 文本节点当前仍不支持二次选中编辑。
-        if (selectedItem.options.drawType == 6) return
-
         selectedArea = JSON.parse(JSON.stringify(selectedItem)) as CanvasHistoryItem
         selectedIndex = selectedArea.index
         dependencies.setSelectedIndex(selectedIndex)
@@ -217,6 +217,15 @@ export function activatePointerTool(dependencies: PointerToolDependencies): void
             y3 + offset.y,
             selectedIndex
         )
+
+        if (area.options.drawType == 6 && area.options.style) {
+            dependencies.moveElement(
+                selectedIndex,
+                x1 + offset.x,
+                y1 + offset.y
+            )
+        }
+
         void x2
         void y2
     }
@@ -309,7 +318,14 @@ export function activatePointerTool(dependencies: PointerToolDependencies): void
                 y4: stretch ? (position.y1 + position.y3) / 2 : drawData.y4 + offset!.y
             }
         } else if (drawType == 6) {
-            return
+            if (stretch || !area.options.style) return
+            const style = area.options.style
+            changedData = {
+                ...style,
+                left: position.x1,
+                top: position.y1
+            }
+            area.options.style = { ...style, left: position.x1, top: position.y1 }
         } else if (drawType == 7) {
             changedData = {
                 x: stretch ? position.x1 : drawData.x + offset!.x,
@@ -325,7 +341,12 @@ export function activatePointerTool(dependencies: PointerToolDependencies): void
             position,
             stretch
                 ? { stretchIndex: selectedIndex, drawData: changedData, isSelected: 1 }
-                : { moveIndex: selectedIndex, drawData: changedData, isSelected: 1 }
+                : {
+                    moveIndex: selectedIndex,
+                    drawData: changedData,
+                    isSelected: 1,
+                    ...(drawType == 6 && area.options.style ? { style: changedData } : {})
+                  }
         )
         Promise.resolve(dependencies.refresh()).catch(error => {
             console.error("z-board pointer refresh failed:", error)
@@ -348,6 +369,15 @@ export function activatePointerTool(dependencies: PointerToolDependencies): void
     dependencies.overlay.addEventListener("touchend", end, options)
     window.addEventListener("mouseup", end, options)
     window.addEventListener("touchend", end, options)
+    dependencies.overlay.addEventListener("dblclick", (event: PointerEvent) => {
+        const point = getPos(event)
+        const selectedItems = findSelectedItems(point)
+        const textItem = selectedItems[selectedItems.length - 1]
+        if (textItem?.options.drawType == 6 && dependencies.beginTextEdit(textItem.index)) {
+            editingTextIndex = textItem.index
+            event.preventDefault()
+        }
+    }, options)
 
     void changedDrawData
 }

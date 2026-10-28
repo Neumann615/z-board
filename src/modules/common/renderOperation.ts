@@ -49,10 +49,14 @@ export async function renderHistoryOperation(
         if (!operation.style || !operation.text) return
         const editBox = document.createElement("div")
         editBox.className = "bupu-edit-box"
+        editBox.dataset.operationIndex = String(item.index)
+        editBox.contentEditable = "false"
         editBox.style.padding = "4px"
         editBox.style.border = "none"
         editBox.style.left = operation.style.left + "px"
         editBox.style.top = operation.style.top + "px"
+        editBox.style.maxWidth = `calc(100% - ${operation.style.left}px)`
+        editBox.style.maxHeight = `calc(100% - ${operation.style.top}px)`
         editBox.style.fontSize = operation.style.fontSize + "px"
         editBox.style.color = operation.style.color
         editBox.innerText = operation.text

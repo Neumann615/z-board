@@ -53,6 +53,19 @@ function scaleHistoryDrawData(
     currentResolution: { w: number; h: number }
 ): void {
     const { drawData, drawType } = item.options
+
+    if (drawType == 6) {
+        if (item.options.style) {
+            item.options.style.left = Math.floor(item.options.style.left * widthScale)
+            item.options.style.top = Math.floor(item.options.style.top * heightScale)
+            item.options.style.fontSize = Math.max(
+                1,
+                Math.floor(item.options.style.fontSize * ((widthScale + heightScale) / 2))
+            )
+        }
+        return
+    }
+
     if (!drawData) return
 
     if (drawType == 0 || drawType == 1) {
@@ -164,6 +177,9 @@ export function resolveHistoryContent(
                     target.canvasResolution = cloneHistoryData(canvasResolution)
                     if (options.drawData) {
                         target.options.drawData = cloneHistoryData(options.drawData)
+                    }
+                    if (options.style) {
+                        target.options.style = cloneHistoryData(options.style)
                     }
                 }
             }

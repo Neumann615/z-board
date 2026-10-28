@@ -43,6 +43,24 @@ YYYY-MM-DD-<模块或主题>-<描述>.<ext>
 2026-10-17-thick-curve-pixels.json
 ```
 
+## 正式测试与临时验证的区别
+
+正式回归测试属于工程文件，放在 `tests/`，命名使用：
+
+```text
+<module>.test.ts
+```
+
+例如：
+
+```text
+tests/history.test.ts
+tests/curve-path.test.ts
+```
+
+这类文件应当提交，并纳入 `npm test`。
+一次性手动验证脚本、运行输出、截图和临时数据仍必须放入 `ai-drafts/`。
+
 ## 禁止事项
 
 - 不要把 AI 调试文件、截图、测试结果直接放在仓库根目录

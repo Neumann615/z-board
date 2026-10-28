@@ -115,11 +115,16 @@ updateCanvasHistory({
 npm run dev          # 根级白板/截图 Demo
 npm run docs:dev     # VitePress 文档站点
 npm run typecheck    # TypeScript strict 检查
+npm test             # 运行 Vitest 单元测试
+npm run test:watch   # watch 模式运行测试
+npm run test:coverage # 运行测试并生成覆盖率报告
 npm run build        # 构建库产物
 npm run build:demo   # 构建文档站点
 ```
 
 根级 Demo 默认展示白板，顶部可切换到截图 Demo。
+
+正式单元测试位于 `tests/*.test.ts`，覆盖 Canvas 历史解析和平滑曲线路径。CI 会在 Node.js 22 下执行类型检查、单元测试、构建和生产依赖审计。
 
 ## 协议
 

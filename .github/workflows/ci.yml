@@ -1,0 +1,35 @@
+﻿name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Library build
+        run: npm run build
+
+      - name: Docs build
+        run: npm run build:demo
+
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high

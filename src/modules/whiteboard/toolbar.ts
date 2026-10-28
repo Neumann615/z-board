@@ -33,13 +33,7 @@ import {
     createWriteTool,
     type CanvasToolContext
 } from "/src/modules/common/canvasTools"
-import {
-    appendHistoryOperation,
-    createHistoryPages,
-    getHistoryPageData,
-    HistoryAction,
-    resolveHistoryContent
-} from "/src/modules/common/history"
+import { HistoryAction } from "/src/modules/common/history"
 import { renderHistoryOperation } from "/src/modules/common/renderOperation"
 import {
     clearEditableText,
@@ -47,10 +41,9 @@ import {
     updateSelectionFrame
 } from "/src/modules/common/selection"
 import { activatePointerTool, resetPointerTool } from "./pointerTool"
+import { WhiteboardHistoryStore } from "./whiteboardHistoryStore"
 
-export let canvasHistory: CanvasPage[] = createHistoryPages(3)
-let nowPageIndex = 0
-let allPageNumber = 3
+const historyStore = new WhiteboardHistoryStore()
 let canvas: HTMLCanvasElement | null = null
 let ctx: CanvasRenderingContext2D | null = null
 let temporaryCanvas: HTMLCanvasElement | null = null
@@ -60,9 +53,7 @@ let nowSelectIndex = -1
 export function resetToolbarData(): void {
     resetPointerTool()
     unbindKeyboardEvents()
-    canvasHistory = createHistoryPages(3)
-    nowPageIndex = 0
-    allPageNumber = 3
+    historyStore.reset()
     nowSelectIndex = -1
 }
 
@@ -86,7 +77,7 @@ function handleKeyboardEvent(event: KeyboardEvent): void {
         addCanvasData(-1, {} as RectAreaData, {
             deleteIndex: nowSelectIndex
         })
-        restoreArtBoardState(getCanvasDataContent(canvasHistory[nowPageIndex].canvasData))
+        restoreArtBoardState(historyStore.activeContent(canvasResolution))
         clearSelect()
         return
     }
@@ -136,18 +127,8 @@ export function updateImageCacheSet(imageUrl: string, imageElement: HTMLImageEle
 //1添加 0移动 -1删除 2置顶 -2置底 3拉伸
 export function addCanvasData(actionType: number, position: RectAreaData, options: CanvasOptions, pageIndex?: number): void {
     if (!position) return
-    appendHistoryOperation(canvasHistory[pageIndex ? pageIndex : nowPageIndex], {
-        actionType,
-        position,
-        options,
-        index: canvasHistory[pageIndex ? pageIndex : nowPageIndex].canvasData.length,
-        canvasResolution: JSON.parse(JSON.stringify(canvasResolution))
-    })
-    whiteBoardDataSet.addCanvasHistoryHandler && whiteBoardDataSet.addCanvasHistoryHandler({
-        canvasHistory,
-        nowPageIndex,
-        allPageNumber
-    })
+    historyStore.append(actionType, position, options, canvasResolution, pageIndex)
+    notifyCanvasHistory()
 }
 
 //绘制选中框
@@ -195,32 +176,25 @@ export function getCanvasObject(canvas1: HTMLCanvasElement, temporaryCanvas1: HT
     temporaryCtx = temporaryCanvas1.getContext("2d")
     bindKeyboardEvents()
     //初始化默认分页
-    updatePaginationText(nowPageIndex + 1 + "/" + allPageNumber)
+    updatePaginationText(`${historyStore.activePageIndex + 1}/${historyStore.pageCount}`)
 }
 
 //更新绘画历史并重新绘制
-export function updateCanvasHistory(v: { canvasHistory: CanvasPage[], nowPageIndex: number, allPageNumber: number }): void {
-    canvasHistory = v.canvasHistory
-    nowPageIndex = v.nowPageIndex
-    allPageNumber = v.allPageNumber
-    let _canvasData = canvasHistory[nowPageIndex].canvasData
-    if (canvasHistory[nowPageIndex].canvasData.length - 1 != canvasHistory[nowPageIndex].step) {
-        _canvasData = _canvasData.slice(0, canvasHistory[nowPageIndex].step + 1)
-    }
-    updatePaginationText(nowPageIndex + 1 + "/" + allPageNumber)
-    restoreArtBoardState(getCanvasDataContent(_canvasData))
+export function updateCanvasHistory(v: {
+    canvasHistory: CanvasPage[]
+    nowPageIndex: number
+    allPageNumber: number
+}): void {
+    historyStore.replace(v)
+    updatePaginationText(`${historyStore.activePageIndex + 1}/${historyStore.pageCount}`)
+    restoreArtBoardState(historyStore.activeContent(canvasResolution))
 }
 
 //画板分辨率变化时重新绘制
 export function redrawByResolution(): void {
-    if (canvasHistory.length && ctx) {
-        restoreArtBoardState(getCanvasDataContent(canvasHistory[nowPageIndex].canvasData))
+    if (ctx) {
+        restoreArtBoardState(historyStore.activeContent(canvasResolution))
     }
-}
-
-//历史记录的canvas纪录列表需要同步处理  结合当前canvas屏幕分辨率进行同步
-export function getCanvasDataContent(canvasData: CanvasHistoryItem[], step?: number): CanvasHistoryItem[] {
-    return resolveHistoryContent(canvasData, canvasResolution, step)
 }
 
 //恢复画板状态
@@ -277,10 +251,7 @@ export function pointer(): void {
         overlay: overlayDom!,
         temporaryCanvas: temporaryCanvas!,
         resolution: () => canvasResolution,
-        historyContent: () => getCanvasDataContent(
-            canvasHistory[nowPageIndex].canvasData,
-            canvasHistory[nowPageIndex].step
-        ),
+        historyContent: () => historyStore.activeContent(canvasResolution),
         setSelectedIndex: index => {
             nowSelectIndex = index
         },
@@ -291,9 +262,7 @@ export function pointer(): void {
         addOperation: (actionType, position, options) => {
             addCanvasData(actionType, position, options)
         },
-        refresh: () => restoreArtBoardState(
-            getCanvasDataContent(canvasHistory[nowPageIndex].canvasData)
-        )
+        refresh: () => restoreArtBoardState(historyStore.activeContent(canvasResolution))
     })
 }
 
@@ -331,7 +300,7 @@ function createToolContext(): CanvasToolContext {
 //撤销
 export function undo(setStep?: number): void {
     const rollbackStep = setStep ?? 0
-    if (canvasHistory[nowPageIndex].step < rollbackStep) {
+    if (!historyStore.undo(rollbackStep)) {
         message({
             type: "warn",
             text: "无法撤销",
@@ -343,15 +312,13 @@ export function undo(setStep?: number): void {
     clearSelect()
     clearCanvas()
     clearTextDom()
-    canvasHistory[nowPageIndex].step -= 1
-    restoreArtBoardState(getHistoryPageData(canvasHistory[nowPageIndex]))
+    restoreArtBoardState(historyStore.contentThroughStep())
     notifyCanvasHistory()
 }
 
 //反撤销
 export function redo(): void {
-    const page = canvasHistory[nowPageIndex]
-    if (page.step >= page.canvasData.length - 1) {
+    if (!historyStore.redo()) {
         message({
             type: "warn",
             text: "已经是最新记录了",
@@ -363,17 +330,12 @@ export function redo(): void {
     clearSelect()
     clearCanvas()
     clearTextDom()
-    page.step += 1
-    restoreArtBoardState(getHistoryPageData(page))
+    restoreArtBoardState(historyStore.contentThroughStep())
     notifyCanvasHistory()
 }
 
 function notifyCanvasHistory(): void {
-    whiteBoardDataSet.addCanvasHistoryHandler?.({
-        canvasHistory,
-        nowPageIndex,
-        allPageNumber
-    })
+    whiteBoardDataSet.addCanvasHistoryHandler?.(historyStore.snapshot)
 }
 
 //橡皮擦
@@ -396,9 +358,9 @@ export function eraser(): void {
         if (!mousePress) return
         let xy = getPos(event)
         if (last != null) {
-            if (canvasHistory.length && canvasHistory[nowPageIndex].canvasData.length) {
+            if (historyStore.operationCount) {
                 let list: CanvasHistoryItem[] = []
-                let canvasData = getCanvasDataContent(canvasHistory[nowPageIndex].canvasData, canvasHistory[nowPageIndex].step)
+                let canvasData = historyStore.activeContent(canvasResolution)
                 canvasData.forEach((item) => {
                     let {
                         position
@@ -414,7 +376,7 @@ export function eraser(): void {
                     addCanvasData(-1, {} as RectAreaData, {
                         deleteIndex: changeIndex
                     })
-                    restoreArtBoardState(getCanvasDataContent(canvasHistory[nowPageIndex].canvasData))
+                    restoreArtBoardState(historyStore.activeContent(canvasResolution))
                 }
                 selectAreaData = null
                 changeIndex = -1
@@ -474,47 +436,24 @@ export async function openFile(file: File): Promise<void> {
         })
         return
     }
-    let changePageNum = allPageNumber - nowPageIndex
-    let _canvasResolution = JSON.parse(JSON.stringify(canvasResolution))
-    imageList.forEach((imageUrl: string) => {
-        const page = createHistoryPages(1)[0]
-        appendHistoryOperation(page, {
-            actionType: HistoryAction.add,
-            canvasResolution: _canvasResolution,
-            position: getRectAreaData(0, 0, canvas!.width, canvas!.height),
-            index: 0,
-            options: {
-                drawType: 7,
-                drawData: {
-                    x: 0,
-                    y: 0,
-                    w: canvas!.width,
-                    h: canvas!.height,
-                    imageUrl
-                }
-            }
-        })
-        canvasHistory.push(page)
-        allPageNumber += 1
-    })
-    changeNowPageIndex(changePageNum)
+    const pages = imageList.map(imageUrl => historyStore.createImagePage(
+        imageUrl,
+        canvasResolution,
+        canvas!.width,
+        canvas!.height
+    ))
+    historyStore.appendPages(pages)
+    notifyCanvasHistory()
 }
 
 //新加页面
 export function addPage(): void {
-    if (allPageNumber < 99) {
-        allPageNumber++
-        nowPageIndex = allPageNumber - 1
-        canvasHistory.push(createHistoryPages(1)[0])
-        updatePaginationText(nowPageIndex + 1 + "/" + allPageNumber)
+    if (historyStore.addPage()) {
+        updatePaginationText(`${historyStore.activePageIndex + 1}/${historyStore.pageCount}`)
         clearTemporaryCanvas()
         clearCanvas()
         clearSelect()
-        whiteBoardDataSet.addCanvasHistoryHandler && whiteBoardDataSet.addCanvasHistoryHandler({
-            canvasHistory,
-            nowPageIndex,
-            allPageNumber
-        })
+        notifyCanvasHistory()
     } else {
         message({
             type: "warn",
@@ -526,22 +465,14 @@ export function addPage(): void {
 
 //删除页面
 export function deletePage(): void {
-    if (allPageNumber > 3) {
-        canvasHistory.splice(nowPageIndex, 1)
-        allPageNumber--
-        if (nowPageIndex != 0) {
-            nowPageIndex--
-        }
+    if (historyStore.deletePage()) {
         clearTemporaryCanvas()
         clearCanvas()
         clearSelect()
-        updatePaginationText(nowPageIndex + 1 + "/" + allPageNumber)
-        restoreArtBoardState(getCanvasDataContent(canvasHistory[nowPageIndex].canvasData, canvasHistory[nowPageIndex].step))
-        whiteBoardDataSet.addCanvasHistoryHandler && whiteBoardDataSet.addCanvasHistoryHandler({
-            canvasHistory,
-            nowPageIndex,
-            allPageNumber
-        })
+        clearTextDom()
+        updatePaginationText(`${historyStore.activePageIndex + 1}/${historyStore.pageCount}`)
+        restoreArtBoardState(historyStore.activeContent(canvasResolution))
+        notifyCanvasHistory()
     } else {
         message({
             type: "warn",
@@ -553,15 +484,12 @@ export function deletePage(): void {
 
 //重置
 export function reset(): void {
-    canvasHistory[nowPageIndex].canvasData = []
-    canvasHistory[nowPageIndex].step = -1
+    historyStore.resetActivePage()
     clearSelect()
+    clearTemporaryCanvas()
     clearCanvas()
-    whiteBoardDataSet.addCanvasHistoryHandler && whiteBoardDataSet.addCanvasHistoryHandler({
-        canvasHistory,
-        nowPageIndex,
-        allPageNumber
-    })
+    clearTextDom()
+    notifyCanvasHistory()
 }
 
 //导出画板内容
@@ -576,18 +504,12 @@ export function save(): void {
 
 //切换页面
 export function changeNowPageIndex(changeNum: number): void {
-    let flag = nowPageIndex + changeNum
-    if (flag >= 0 && flag < allPageNumber) {
+    if (historyStore.changePage(changeNum)) {
         clearSelect()
         clearTextDom()
-        nowPageIndex = flag
-        updatePaginationText(nowPageIndex + 1 + "/" + allPageNumber)
-        restoreArtBoardState(getCanvasDataContent(canvasHistory[nowPageIndex].canvasData, canvasHistory[nowPageIndex].step))
-        whiteBoardDataSet.addCanvasHistoryHandler && whiteBoardDataSet.addCanvasHistoryHandler({
-            canvasHistory,
-            nowPageIndex,
-            allPageNumber
-        })
+        updatePaginationText(`${historyStore.activePageIndex + 1}/${historyStore.pageCount}`)
+        restoreArtBoardState(historyStore.activeContent(canvasResolution))
+        notifyCanvasHistory()
     }
 }
 
@@ -598,7 +520,7 @@ export function setTop(): void {
             topIndex: nowSelectIndex
         })
         clearTemporaryCanvas()
-        restoreArtBoardState(getCanvasDataContent(canvasHistory[nowPageIndex].canvasData))
+        restoreArtBoardState(historyStore.activeContent(canvasResolution))
     }
 }
 
@@ -609,6 +531,6 @@ export function setBottom(): void {
             bottomIndex: nowSelectIndex
         })
         clearTemporaryCanvas()
-        restoreArtBoardState(getCanvasDataContent(canvasHistory[nowPageIndex].canvasData))
+        restoreArtBoardState(historyStore.activeContent(canvasResolution))
     }
 }
